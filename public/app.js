@@ -178,6 +178,9 @@
     var text = document.createElement('textarea');
     text.className = 'note-text';
     text.maxLength = TEXT_MAX;
+    text.spellcheck = false;
+    text.setAttribute('spellcheck', 'false');
+    text.setAttribute('autocorrect', 'off');
     text.placeholder = 'Write something…';
     text.setAttribute('aria-label', 'Note text');
 
