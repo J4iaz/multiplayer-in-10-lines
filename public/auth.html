@@ -1,0 +1,1247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign In — Multiplayer in 10 Lines</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #05071a;
+      --accent: #96d7ff;
+      --accent-dim: rgba(150, 215, 255, 0.15);
+      --accent-border: rgba(150, 215, 255, 0.3);
+      --glass-bg: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.06);
+      --text-primary: #f0f4ff;
+      --text-secondary: #8898bb;
+      --text-muted: #4f617e;
+      --error: #ff6b8a;
+      --success: #4ade80;
+      --warn: #fbbf24;
+      --input-bg: rgba(0, 0, 0, 0.25);
+      --input-border: rgba(255, 255, 255, 0.08);
+      --input-focus: rgba(150, 215, 255, 0.35);
+      --radius-card: 24px;
+      --radius-input: 12px;
+      --radius-btn: 12px;
+      --transition: 0.2s ease;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+
+    /* ── Background Canvas ── */
+    .glass-fold-bg {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .auth-wrap {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* ── Glass Card ── */
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(1.6);
+      -webkit-backdrop-filter: blur(24px) saturate(1.6);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-card);
+      padding: 40px 36px;
+      box-shadow:
+        0 0 0 1px rgba(150, 215, 255, 0.04),
+        0 32px 80px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    }
+
+    /* ── Logo ── */
+    .auth-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .auth-logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, rgba(150,215,255,0.2), rgba(99,102,241,0.2));
+      border: 1px solid var(--accent-border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .auth-logo-text {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      letter-spacing: 0.01em;
+    }
+
+    .auth-logo-text strong {
+      display: block;
+      font-size: 1rem;
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* ── Tab Bar ── */
+    .auth-tabs {
+      display: flex;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--glass-border);
+      border-radius: 14px;
+      padding: 4px;
+      margin-bottom: 28px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+    }
+
+    .tab-btn.active {
+      background: rgba(150, 215, 255, 0.12);
+      color: var(--accent);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text-secondary);
+      background: rgba(255,255,255,0.03);
+    }
+
+    /* ── Views ── */
+    .auth-view {
+      display: none;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .auth-view.active {
+      display: block;
+    }
+
+    .auth-view.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .view-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .view-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      margin-bottom: 24px;
+    }
+
+    /* ── Form Fields ── */
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      letter-spacing: 0.01em;
+    }
+
+    .input-wrap {
+      position: relative;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 11px 14px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: var(--radius-input);
+      color: var(--text-primary);
+      font-size: 0.9375rem;
+      outline: none;
+      transition: border-color var(--transition), box-shadow var(--transition);
+      appearance: none;
+    }
+
+    .field input:focus {
+      border-color: var(--input-focus);
+      box-shadow: 0 0 0 3px rgba(150, 215, 255, 0.08);
+    }
+
+    .field input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .field input.has-toggle {
+      padding-right: 44px;
+    }
+
+    /* ── Password Toggle ── */
+    .pw-toggle {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      transition: color var(--transition);
+    }
+
+    .pw-toggle:hover {
+      color: var(--text-secondary);
+    }
+
+    /* ── Password Strength ── */
+    .strength-bar {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .strength-seg {
+      flex: 1;
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.08);
+      transition: background 0.3s ease;
+    }
+
+    .strength-seg.weak   { background: #ef4444; }
+    .strength-seg.fair   { background: #f97316; }
+    .strength-seg.good   { background: #eab308; }
+    .strength-seg.strong { background: #22c55e; }
+
+    .strength-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ── Forgot Link ── */
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      margin-top: -8px;
+      margin-bottom: 16px;
+      transition: color var(--transition);
+    }
+
+    .forgot-link:hover {
+      color: var(--accent);
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      width: 100%;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, rgba(150,215,255,0.18), rgba(99,102,241,0.18));
+      border: 1px solid var(--accent-border);
+      border-radius: var(--radius-btn);
+      color: var(--accent);
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: 0.01em;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(150,215,255,0.08), transparent);
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .btn-primary:hover:not(:disabled)::before {
+      opacity: 1;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      border-color: rgba(150, 215, 255, 0.5);
+      box-shadow: 0 4px 20px rgba(150,215,255,0.12);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 11px 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-btn);
+      color: var(--text-secondary);
+      font-size: 0.9375rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.12);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--glass-border);
+    }
+
+    .divider span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    /* ── Google Button ── */
+    .btn-google {
+      width: 100%;
+      padding: 11px 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-btn);
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-google:hover:not(:disabled) {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(255,255,255,0.12);
+      color: var(--text-primary);
+    }
+
+    .btn-google:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .google-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    /* ── Guest Button ── */
+    .btn-guest {
+      width: 100%;
+      padding: 10px 20px;
+      background: transparent;
+      border: 1px dashed rgba(255,255,255,0.12);
+      border-radius: var(--radius-btn);
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-top: 12px;
+    }
+
+    .btn-guest:hover:not(:disabled) {
+      border-color: rgba(255,255,255,0.2);
+      color: var(--text-secondary);
+    }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(150,215,255,0.2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Back Link ── */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      margin-bottom: 20px;
+      transition: color var(--transition);
+      background: none;
+      border: none;
+      padding: 0;
+    }
+
+    .back-link:hover {
+      color: var(--accent);
+    }
+
+    /* ── OTP Input ── */
+    .otp-wrap {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+
+    .otp-input {
+      width: 44px !important;
+      height: 52px;
+      text-align: center;
+      font-size: 1.25rem !important;
+      font-weight: 700;
+      letter-spacing: 0;
+      padding: 0 !important;
+      border-radius: 10px !important;
+    }
+
+    /* ── Dev Mode Notice ── */
+    .dev-notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      background: rgba(251, 191, 36, 0.06);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    .dev-notice-icon {
+      font-size: 1rem;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .dev-notice p {
+      font-size: 0.8125rem;
+      color: var(--warn);
+      line-height: 1.5;
+    }
+
+    .dev-notice a {
+      color: var(--warn);
+      text-decoration: underline;
+    }
+
+    /* ── Error/Success inline ── */
+    .field-error {
+      font-size: 0.75rem;
+      color: var(--error);
+      margin-top: 5px;
+    }
+
+    /* ── Toast ── */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      max-width: 340px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: slideIn 0.3s ease forwards;
+      pointer-events: auto;
+    }
+
+    .toast.error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+    }
+
+    .toast.success {
+      background: rgba(34, 197, 94, 0.12);
+      border: 1px solid rgba(34, 197, 94, 0.25);
+      color: #86efac;
+    }
+
+    .toast.info {
+      background: rgba(150, 215, 255, 0.1);
+      border: 1px solid rgba(150, 215, 255, 0.2);
+      color: var(--accent);
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes slideOut {
+      from { opacity: 1; transform: translateX(0); }
+      to   { opacity: 0; transform: translateX(20px); }
+    }
+
+    /* ── Footer ── */
+    .auth-footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .auth-footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+
+    .auth-footer a:hover {
+      color: var(--accent);
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .auth-card {
+        padding: 28px 20px;
+        border-radius: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="glassFoldCanvas" class="glass-fold-bg"></canvas>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="auth-wrap">
+    <div class="auth-card">
+
+      <!-- Logo -->
+      <div class="auth-logo">
+        <div class="auth-logo-icon">⚡</div>
+        <div class="auth-logo-text">
+          <strong>Multiplayer</strong>
+          in 10 Lines
+        </div>
+      </div>
+
+      <!-- Dev mode notice (shown if no Supabase) -->
+      <div class="dev-notice" id="devNotice" style="display:none">
+        <span class="dev-notice-icon">⚠️</span>
+        <p>Auth is in <strong>dev mode</strong> — Supabase not configured. Add <code>SUPABASE_URL</code> and keys to enable real authentication. <a href="https://supabase.com" target="_blank" rel="noopener">Set up Supabase →</a></p>
+      </div>
+
+      <!-- Tab bar (Sign In / Create Account) -->
+      <div class="auth-tabs" id="authTabs">
+        <button class="tab-btn active" data-tab="login">Sign In</button>
+        <button class="tab-btn" data-tab="signup">Create Account</button>
+      </div>
+
+      <!-- ── VIEW: Login ── -->
+      <div class="auth-view active" id="view-login">
+        <h1 class="view-title">Welcome back</h1>
+        <p class="view-subtitle">Sign in to access your collaborative boards.</p>
+
+        <div class="field">
+          <label for="login-email">Email</label>
+          <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <div class="field">
+          <label for="login-password">Password</label>
+          <div class="input-wrap">
+            <input type="password" id="login-password" class="has-toggle" placeholder="••••••••" autocomplete="current-password" />
+            <button type="button" class="pw-toggle" data-target="login-password" aria-label="Toggle password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <a href="#" class="forgot-link" id="forgotLink">Forgot password?</a>
+
+        <button class="btn-primary" id="loginBtn">Sign In</button>
+
+        <div class="divider"><span>or</span></div>
+
+        <button class="btn-google" id="loginGoogleBtn">
+          <svg class="google-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Continue with Google
+        </button>
+
+        <button class="btn-guest" id="loginGuestBtn" style="display:none">Continue as Guest →</button>
+      </div>
+
+      <!-- ── VIEW: Signup ── -->
+      <div class="auth-view" id="view-signup">
+        <h1 class="view-title">Create account</h1>
+        <p class="view-subtitle">Join and start collaborating in seconds.</p>
+
+        <div class="field">
+          <label for="signup-name">Display Name</label>
+          <input type="text" id="signup-name" placeholder="Ada Lovelace" autocomplete="name" maxlength="50" />
+        </div>
+
+        <div class="field">
+          <label for="signup-email">Email</label>
+          <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <div class="field">
+          <label for="signup-password">Password</label>
+          <div class="input-wrap">
+            <input type="password" id="signup-password" class="has-toggle" placeholder="Create a strong password" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" data-target="signup-password" aria-label="Toggle password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="strength-bar" id="strengthBar">
+            <div class="strength-seg" id="seg0"></div>
+            <div class="strength-seg" id="seg1"></div>
+            <div class="strength-seg" id="seg2"></div>
+            <div class="strength-seg" id="seg3"></div>
+          </div>
+          <div class="strength-label" id="strengthLabel"></div>
+        </div>
+
+        <button class="btn-primary" id="signupBtn">Create Account</button>
+
+        <div class="divider"><span>or</span></div>
+
+        <button class="btn-google" id="signupGoogleBtn">
+          <svg class="google-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          Sign up with Google
+        </button>
+      </div>
+
+      <!-- ── VIEW: Forgot Password ── -->
+      <div class="auth-view" id="view-forgot">
+        <button class="back-link" id="forgotBack">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back to Sign In
+        </button>
+        <h1 class="view-title">Reset password</h1>
+        <p class="view-subtitle">Enter your email and we'll send you a reset link.</p>
+
+        <div class="field">
+          <label for="forgot-email">Email</label>
+          <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <button class="btn-primary" id="forgotBtn">Send Reset Link</button>
+      </div>
+
+      <!-- ── VIEW: Verify Email (OTP) ── -->
+      <div class="auth-view" id="view-verify">
+        <button class="back-link" id="verifyBack">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back
+        </button>
+        <h1 class="view-title">Check your inbox</h1>
+        <p class="view-subtitle" id="verifySubtitle">We sent a 6-digit code to your email. Enter it below.</p>
+
+        <div class="otp-wrap" id="otpWrap">
+          <input type="text" class="field input otp-input" id="otp0" maxlength="1" pattern="[0-9]" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1" />
+          <input type="text" class="field input otp-input" id="otp1" maxlength="1" pattern="[0-9]" inputmode="numeric" aria-label="Digit 2" />
+          <input type="text" class="field input otp-input" id="otp2" maxlength="1" pattern="[0-9]" inputmode="numeric" aria-label="Digit 3" />
+          <input type="text" class="field input otp-input" id="otp3" maxlength="1" pattern="[0-9]" inputmode="numeric" aria-label="Digit 4" />
+          <input type="text" class="field input otp-input" id="otp4" maxlength="1" pattern="[0-9]" inputmode="numeric" aria-label="Digit 5" />
+          <input type="text" class="field input otp-input" id="otp5" maxlength="1" pattern="[0-9]" inputmode="numeric" aria-label="Digit 6" />
+        </div>
+
+        <button class="btn-primary" id="verifyBtn">Verify Code</button>
+
+        <div style="text-align:center; margin-top:16px;">
+          <button class="back-link" id="resendBtn">Didn't get it? Resend code</button>
+        </div>
+      </div>
+
+      <!-- ── VIEW: New Password ── -->
+      <div class="auth-view" id="view-newpass">
+        <h1 class="view-title">New password</h1>
+        <p class="view-subtitle">Choose a strong password for your account.</p>
+
+        <div class="field">
+          <label for="newpass-password">New Password</label>
+          <div class="input-wrap">
+            <input type="password" id="newpass-password" class="has-toggle" placeholder="Enter new password" autocomplete="new-password" />
+            <button type="button" class="pw-toggle" data-target="newpass-password" aria-label="Toggle password">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+          <div class="strength-bar" id="newStrengthBar">
+            <div class="strength-seg" id="nseg0"></div>
+            <div class="strength-seg" id="nseg1"></div>
+            <div class="strength-seg" id="nseg2"></div>
+            <div class="strength-seg" id="nseg3"></div>
+          </div>
+          <div class="strength-label" id="newStrengthLabel"></div>
+        </div>
+
+        <div class="field">
+          <label for="newpass-confirm">Confirm Password</label>
+          <input type="password" id="newpass-confirm" placeholder="Repeat password" autocomplete="new-password" />
+        </div>
+
+        <button class="btn-primary" id="newpassBtn">Update Password</button>
+      </div>
+
+    </div><!-- /.auth-card -->
+
+    <div class="auth-footer">
+      <a href="/">← Back to the board</a>
+      &nbsp;·&nbsp;
+      <a href="/10-lines.html">Live demo</a>
+    </div>
+  </div><!-- /.auth-wrap -->
+
+  <script src="/glass-fold.js"></script>
+  <script src="/vendor/supabase.js"></script>
+  <script>
+    /* ──────────────────────────────────────────────
+       auth.html — vanilla JS auth flow
+    ────────────────────────────────────────────── */
+    (function () {
+      'use strict';
+
+      // ── State ──
+      var config = { hasAuth: false, hasAI: false, allowGuests: true };
+      var supabase = null;
+      var currentView = 'login';
+      var verifyMode = 'signup'; // 'signup' | 'forgot'
+      var pendingEmail = '';
+
+      // ── DOM refs ──
+      var tabs = document.getElementById('authTabs');
+      var devNotice = document.getElementById('devNotice');
+      var loginGuestBtn = document.getElementById('loginGuestBtn');
+
+      // ── Toast ──
+      function toast(msg, type, duration) {
+        type = type || 'error';
+        duration = duration || 5000;
+        var container = document.getElementById('toastContainer');
+        var el = document.createElement('div');
+        el.className = 'toast ' + type;
+        el.textContent = msg;
+        container.appendChild(el);
+        var timer = setTimeout(function () { dismiss(el); }, duration);
+        el.addEventListener('click', function () { clearTimeout(timer); dismiss(el); });
+      }
+
+      function dismiss(el) {
+        el.style.animation = 'slideOut 0.3s ease forwards';
+        setTimeout(function () { el.remove(); }, 300);
+      }
+
+      // ── View transitions ──
+      function showView(id, hideTabBar) {
+        document.querySelectorAll('.auth-view').forEach(function (v) {
+          v.classList.remove('active', 'visible');
+        });
+        var target = document.getElementById('view-' + id);
+        if (!target) return;
+        tabs.style.display = (hideTabBar || id === 'forgot' || id === 'verify' || id === 'newpass') ? 'none' : '';
+        currentView = id;
+        target.classList.add('active');
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            target.classList.add('visible');
+          });
+        });
+      }
+
+      // ── Tab switching ──
+      tabs.addEventListener('click', function (e) {
+        var btn = e.target.closest('.tab-btn');
+        if (!btn) return;
+        tabs.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        showView(btn.dataset.tab);
+      });
+
+      // ── Password toggle ──
+      document.querySelectorAll('.pw-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var input = document.getElementById(btn.dataset.target);
+          if (!input) return;
+          var isText = input.type === 'text';
+          input.type = isText ? 'password' : 'text';
+          btn.setAttribute('aria-label', isText ? 'Show password' : 'Hide password');
+        });
+      });
+
+      // ── Password strength ──
+      function getStrength(pw) {
+        if (!pw || pw.length < 4) return 0;
+        var score = 0;
+        if (pw.length >= 8)  score++;
+        if (pw.length >= 12) score++;
+        if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+        if (/[0-9]/.test(pw)) score++;
+        if (/[^A-Za-z0-9]/.test(pw)) score++;
+        return Math.min(4, Math.floor(score * 4 / 5) + (pw.length >= 6 ? 1 : 0));
+      }
+
+      function updateStrength(pw, prefix) {
+        prefix = prefix || '';
+        var levels = ['', 'weak', 'fair', 'good', 'strong'];
+        var labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+        var score = getStrength(pw);
+        for (var i = 0; i < 4; i++) {
+          var seg = document.getElementById((prefix || '') + 'seg' + i);
+          if (seg) {
+            seg.className = 'strength-seg';
+            if (i < score) seg.classList.add(levels[score]);
+          }
+        }
+        var label = document.getElementById((prefix || '') + 'strengthLabel');
+        if (label) label.textContent = pw ? labels[score] : '';
+      }
+
+      document.getElementById('signup-password').addEventListener('input', function () {
+        updateStrength(this.value, '');
+      });
+
+      document.getElementById('newpass-password').addEventListener('input', function () {
+        updateStrength(this.value, 'n');
+      });
+
+      // ── OTP wiring ──
+      var otpInputs = Array.from(document.querySelectorAll('.otp-input'));
+      otpInputs.forEach(function (inp, idx) {
+        inp.addEventListener('input', function () {
+          var val = inp.value.replace(/\D/g, '');
+          inp.value = val ? val[0] : '';
+          if (val && idx < otpInputs.length - 1) otpInputs[idx + 1].focus();
+        });
+        inp.addEventListener('keydown', function (e) {
+          if (e.key === 'Backspace' && !inp.value && idx > 0) {
+            otpInputs[idx - 1].focus();
+          }
+        });
+        inp.addEventListener('paste', function (e) {
+          e.preventDefault();
+          var data = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+          data.slice(0, 6).split('').forEach(function (ch, i) {
+            if (otpInputs[i]) otpInputs[i].value = ch;
+          });
+          var next = Math.min(data.length, 5);
+          otpInputs[next].focus();
+        });
+      });
+
+      function getOTP() {
+        return otpInputs.map(function (i) { return i.value; }).join('');
+      }
+
+      function clearOTP() {
+        otpInputs.forEach(function (i) { i.value = ''; });
+        otpInputs[0].focus();
+      }
+
+      // ── Spinner helper ──
+      function setLoading(btn, loading, text) {
+        if (loading) {
+          btn._origText = btn.innerHTML;
+          btn.innerHTML = '<span class="spinner"></span>' + (text || 'Loading…');
+          btn.disabled = true;
+        } else {
+          btn.innerHTML = btn._origText || text || 'Submit';
+          btn.disabled = false;
+        }
+      }
+
+      // ── Redirect after auth ──
+      function redirectAfterAuth() {
+        var room = sessionStorage.getItem('intended_room') || '';
+        sessionStorage.removeItem('intended_room');
+        var dest = '/';
+        if (room) dest = '/?room=' + encodeURIComponent(room);
+        window.location.href = dest;
+      }
+
+      // ── Guest mode ──
+      loginGuestBtn.addEventListener('click', function () {
+        redirectAfterAuth();
+      });
+
+      // ── Forgot password flow ──
+      document.getElementById('forgotLink').addEventListener('click', function (e) {
+        e.preventDefault();
+        var email = document.getElementById('login-email').value.trim();
+        if (email) document.getElementById('forgot-email').value = email;
+        showView('forgot');
+      });
+
+      document.getElementById('forgotBack').addEventListener('click', function () {
+        showView('login');
+      });
+
+      document.getElementById('verifyBack').addEventListener('click', function () {
+        showView(verifyMode === 'forgot' ? 'forgot' : 'signup');
+      });
+
+      // ── Resend ──
+      document.getElementById('resendBtn').addEventListener('click', function () {
+        if (!supabase || !pendingEmail) return;
+        supabase.auth.resend({ type: 'signup', email: pendingEmail })
+          .then(function () { toast('Code resent!', 'info'); })
+          .catch(function (err) { toast(err.message || 'Resend failed', 'error'); });
+      });
+
+      // ── Initialize Supabase (client-side) ──
+      function initSupabase() {
+        if (!config.hasAuth) return;
+        // Try to init from /vendor/supabase.js exports
+        if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+          // The placeholder will be replaced with actual Supabase CDN bundle
+          // that exposes window.supabase
+          var url = window._SUPABASE_URL || '';
+          var anonKey = window._SUPABASE_ANON_KEY || '';
+          if (url && anonKey) {
+            supabase = window.supabase.createClient(url, anonKey);
+          }
+        }
+        if (!supabase) {
+          // Try fetching config from a meta tag or window var
+          // In production, inject these via a server-rendered <script> block
+          // or via /api/config extended endpoint
+          console.info('[auth] Supabase client not initialized — add window._SUPABASE_URL and window._SUPABASE_ANON_KEY');
+        }
+      }
+
+      // ── Generic Supabase call wrapper ──
+      function sbCall(fn, btn, loadText) {
+        if (!supabase) {
+          toast('Auth not configured. Add Supabase credentials.', 'error');
+          return;
+        }
+        setLoading(btn, true, loadText);
+        return fn().then(function (result) {
+          setLoading(btn, false);
+          return result;
+        }).catch(function (err) {
+          setLoading(btn, false);
+          toast(err.message || 'Something went wrong', 'error');
+        });
+      }
+
+      // ── Login ──
+      document.getElementById('loginBtn').addEventListener('click', function () {
+        var email = document.getElementById('login-email').value.trim();
+        var password = document.getElementById('login-password').value;
+        var btn = this;
+
+        if (!email || !password) { toast('Please enter email and password.', 'error'); return; }
+        if (!supabase) { toast('Supabase not configured — auth is disabled in dev mode.', 'error'); return; }
+
+        setLoading(btn, true, 'Signing in…');
+        supabase.auth.signInWithPassword({ email: email, password: password })
+          .then(function (res) {
+            setLoading(btn, false);
+            if (res.error) { toast(res.error.message, 'error'); return; }
+            toast('Signed in!', 'success', 2000);
+            setTimeout(redirectAfterAuth, 600);
+          })
+          .catch(function (err) {
+            setLoading(btn, false);
+            toast(err.message || 'Login failed', 'error');
+          });
+      });
+
+      // ── Signup ──
+      document.getElementById('signupBtn').addEventListener('click', function () {
+        var name = document.getElementById('signup-name').value.trim();
+        var email = document.getElementById('signup-email').value.trim();
+        var password = document.getElementById('signup-password').value;
+        var btn = this;
+
+        if (!name || !email || !password) { toast('Please fill in all fields.', 'error'); return; }
+        if (getStrength(password) < 2) { toast('Password is too weak.', 'error'); return; }
+        if (!supabase) { toast('Supabase not configured — auth is disabled in dev mode.', 'error'); return; }
+
+        setLoading(btn, true, 'Creating account…');
+        supabase.auth.signUp({
+          email: email,
+          password: password,
+          options: { data: { display_name: name, full_name: name } }
+        }).then(function (res) {
+          setLoading(btn, false);
+          if (res.error) { toast(res.error.message, 'error'); return; }
+          pendingEmail = email;
+          verifyMode = 'signup';
+          document.getElementById('verifySubtitle').textContent =
+            'We sent a 6-digit code to ' + email + '. Enter it below.';
+          showView('verify');
+          toast('Account created! Check your email.', 'success', 4000);
+        }).catch(function (err) {
+          setLoading(btn, false);
+          toast(err.message || 'Signup failed', 'error');
+        });
+      });
+
+      // ── Forgot submit ──
+      document.getElementById('forgotBtn').addEventListener('click', function () {
+        var email = document.getElementById('forgot-email').value.trim();
+        var btn = this;
+
+        if (!email) { toast('Enter your email address.', 'error'); return; }
+        if (!supabase) { toast('Supabase not configured.', 'error'); return; }
+
+        setLoading(btn, true, 'Sending…');
+        supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + '/auth.html#newpass'
+        }).then(function (res) {
+          setLoading(btn, false);
+          if (res.error) { toast(res.error.message, 'error'); return; }
+          pendingEmail = email;
+          verifyMode = 'forgot';
+          document.getElementById('verifySubtitle').textContent =
+            'We sent a reset link to ' + email + '. Check your inbox.';
+          showView('verify');
+          toast('Reset link sent!', 'success', 4000);
+        }).catch(function (err) {
+          setLoading(btn, false);
+          toast(err.message || 'Failed to send reset link', 'error');
+        });
+      });
+
+      // ── Verify OTP ──
+      document.getElementById('verifyBtn').addEventListener('click', function () {
+        var code = getOTP();
+        var btn = this;
+
+        if (code.length !== 6) { toast('Enter the full 6-digit code.', 'error'); return; }
+        if (!supabase) { toast('Supabase not configured.', 'error'); return; }
+
+        setLoading(btn, true, 'Verifying…');
+        var type = verifyMode === 'forgot' ? 'recovery' : 'signup';
+        supabase.auth.verifyOtp({ email: pendingEmail, token: code, type: type })
+          .then(function (res) {
+            setLoading(btn, false);
+            if (res.error) { toast(res.error.message, 'error'); clearOTP(); return; }
+            if (verifyMode === 'forgot') {
+              showView('newpass');
+            } else {
+              toast('Email verified! Redirecting…', 'success', 2000);
+              setTimeout(redirectAfterAuth, 800);
+            }
+          })
+          .catch(function (err) {
+            setLoading(btn, false);
+            toast(err.message || 'Verification failed', 'error');
+            clearOTP();
+          });
+      });
+
+      // ── New password submit ──
+      document.getElementById('newpassBtn').addEventListener('click', function () {
+        var pw = document.getElementById('newpass-password').value;
+        var confirm = document.getElementById('newpass-confirm').value;
+        var btn = this;
+
+        if (!pw || !confirm) { toast('Please fill in both fields.', 'error'); return; }
+        if (pw !== confirm) { toast('Passwords do not match.', 'error'); return; }
+        if (getStrength(pw) < 2) { toast('Password is too weak.', 'error'); return; }
+        if (!supabase) { toast('Supabase not configured.', 'error'); return; }
+
+        setLoading(btn, true, 'Updating…');
+        supabase.auth.updateUser({ password: pw })
+          .then(function (res) {
+            setLoading(btn, false);
+            if (res.error) { toast(res.error.message, 'error'); return; }
+            toast('Password updated! Redirecting…', 'success', 2000);
+            setTimeout(redirectAfterAuth, 1000);
+          })
+          .catch(function (err) {
+            setLoading(btn, false);
+            toast(err.message || 'Update failed', 'error');
+          });
+      });
+
+      // ── Google OAuth ──
+      function signInWithGoogle() {
+        if (!supabase) { toast('Supabase not configured.', 'error'); return; }
+        supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: window.location.origin + '/auth.html' }
+        }).catch(function (err) {
+          toast(err.message || 'Google sign-in failed', 'error');
+        });
+      }
+
+      document.getElementById('loginGoogleBtn').addEventListener('click', signInWithGoogle);
+      document.getElementById('signupGoogleBtn').addEventListener('click', signInWithGoogle);
+
+      // ── Load config ──
+      fetch('/api/config')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          config = data;
+
+          if (!config.hasAuth) {
+            devNotice.style.display = '';
+            // Disable auth buttons
+            ['loginBtn','signupBtn','forgotBtn','verifyBtn','newpassBtn',
+             'loginGoogleBtn','signupGoogleBtn'].forEach(function (id) {
+              var el = document.getElementById(id);
+              if (el) {
+                el.disabled = true;
+                el.title = 'Configure Supabase to enable auth';
+              }
+            });
+          } else {
+            initSupabase();
+            // Check if user already signed in (handle OAuth callback)
+            if (supabase) {
+              supabase.auth.getSession().then(function (res) {
+                if (res.data && res.data.session) {
+                  redirectAfterAuth();
+                }
+              });
+              // Handle hash-based recovery
+              if (window.location.hash.indexOf('newpass') !== -1 ||
+                  window.location.hash.indexOf('type=recovery') !== -1) {
+                showView('newpass');
+              }
+            }
+          }
+
+          if (config.allowGuests) {
+            loginGuestBtn.style.display = '';
+          }
+        })
+        .catch(function () {
+          // API unreachable — show guest if allowed
+          loginGuestBtn.style.display = '';
+        });
+
+      // ── Initial view from hash ──
+      var hash = window.location.hash.replace('#', '');
+      if (hash === 'signup') {
+        showView('signup');
+        tabs.querySelectorAll('.tab-btn').forEach(function (b) {
+          b.classList.toggle('active', b.dataset.tab === 'signup');
+        });
+      } else if (hash === 'forgot') {
+        showView('forgot');
+      } else {
+        showView('login');
+      }
+
+      // Preserve intended room
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('room')) {
+        sessionStorage.setItem('intended_room', params.get('room'));
+      }
+
+    })();
+  </script>
+</body>
+</html>

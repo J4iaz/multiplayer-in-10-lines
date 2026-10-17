@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multiplayer in 10 Lines — Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 60px auto; padding: 20px; background: #05071a; color: #f0f4ff; }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #96d7ff; }
+    p { color: #8898bb; margin-bottom: 24px; }
+    #btn { padding: 14px 32px; font-size: 1.1rem; background: rgba(150,215,255,0.12); color: #96d7ff; border: 1px solid rgba(150,215,255,0.3); border-radius: 12px; cursor: pointer; transition: background 0.2s; }
+    #btn:hover { background: rgba(150,215,255,0.22); }
+    #status { margin-top: 16px; font-size: 0.85rem; color: #4f617e; }
+    #back { display: inline-block; margin-top: 32px; color: #8898bb; text-decoration: none; font-size: 0.85rem; }
+    #back:hover { color: #96d7ff; }
+  </style>
+</head>
+<body>
+  <h1>Multiplayer in 10 Lines</h1>
+  <p>Click the button — the counter is shared in real time with anyone who has this URL.</p>
+  <!-- This is the entire integration: 1 script tag + 10 lines of JS -->
+  <button id="btn">Clicked 0 times</button>
+  <div id="status">Connecting…</div>
+  <a href="/" id="back">← Back to Sticky Board</a>
+  <script src="/multiplayer.js"></script>
+  <script>
+    const room = Multiplayer.join({ name: prompt('Your name?') || 'Guest' });
+    room.onStatusChange(s => { document.getElementById('status').textContent = s.status === 'connected' ? '🟢 Live — share this URL to collaborate' : s.status; });
+    room.onStateChange(state => {
+      document.getElementById('btn').textContent = `Clicked ${state.clicks || 0} times`;
+    });
+    document.getElementById('btn').onclick = () =>
+      room.setState('clicks', (room.getState('clicks') || 0) + 1);
+  </script>
+</body>
+</html>

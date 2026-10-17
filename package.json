@@ -7,14 +7,20 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js"
+    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js",
+    "lint": "eslint server.js server/ tests/ --ext .js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "16.4.7",
     "express": "4.21.2",
     "ws": "8.18.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.13.0"
   }
 }

@@ -4,6 +4,7 @@
  * Multiplayer-in-10-lines server.
  * - Serves the static demo + library from /public
  * - GET /health for uptime checks
+ * - GET /api/config for client feature flags
  * - WebSocket endpoint at /ws with in-memory rooms (shared state + presence + cursors)
  */
 
@@ -15,59 +16,9 @@ const crypto = require('crypto');
 const express = require('express');
 const { WebSocketServer, WebSocket } = require('ws');
 
-const LIMITS = Object.freeze({
-  roomIdMax: 64,
-  nameMax: 50,
-  keyMax: 128,
-  valueBytesMax: 10 * 1024,
-  keysPerRoomMax: 1000,
-  keysPerPatchMax: 100,
-  clientsPerRoomMax: 50,
-  messageBytesMax: 256 * 1024,
-  messagesPerSecondMax: 120,
-});
-
-const ROOM_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
-const CLIENT_ID_RE = /^[A-Za-z0-9-]{8,64}$/;
-const KEY_RE = /^[A-Za-z0-9_:.\-]{1,128}$/;
-const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
-const COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#0b8a8a', '#d6336c', '#7a5c00', '#2f9e44', '#1971c2'];
-
-function sanitizeName(value) {
-  const name = String(value == null ? '' : value)
-    .replace(/[\u0000-\u001f\u007f]/g, '')
-    .trim()
-    .slice(0, LIMITS.nameMax);
-  return name || 'Guest';
-}
-
-function colorFor(id) {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  return COLORS[hash % COLORS.length];
-}
-
-/** Returns { patch } with validated entries, or { error } describing the first problem. */
-function validatePatch(patch, roomState) {
-  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
-    return { error: 'patch must be an object' };
-  }
-  const keys = Object.keys(patch);
-  if (keys.length === 0) return { error: 'patch is empty' };
-  if (keys.length > LIMITS.keysPerPatchMax) return { error: `too many keys in one patch (max ${LIMITS.keysPerPatchMax})` };
-
-  let newKeys = 0;
-  for (const key of keys) {
-    if (!KEY_RE.test(key) || FORBIDDEN_KEYS.has(key)) return { error: `invalid key "${String(key).slice(0, 40)}"` };
-    const value = patch[key];
-    if (value === null) continue; // deletion
-    const bytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
-    if (bytes > LIMITS.valueBytesMax) return { error: `value for "${key}" exceeds ${LIMITS.valueBytesMax} bytes` };
-    if (!roomState.has(key)) newKeys++;
-  }
-  if (roomState.size + newKeys > LIMITS.keysPerRoomMax) return { error: `room key limit reached (max ${LIMITS.keysPerRoomMax})` };
-  return { patch };
-}
+const { LIMITS, ROOM_ID_RE, CLIENT_ID_RE, KEY_RE, FORBIDDEN_KEYS } = require('./server/limits');
+const serverAuth = require('./server/auth');
+const { sanitizeName, colorFor, validatePatch, COLORS } = require('./server/rooms');
 
 function createServer(options = {}) {
   const roomTtlMs = options.roomTtlMs != null ? options.roomTtlMs : 60 * 60 * 1000;
@@ -78,9 +29,12 @@ function createServer(options = {}) {
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     );
     next();
   });
@@ -92,6 +46,14 @@ function createServer(options = {}) {
     let clients = 0;
     for (const room of rooms.values()) clients += room.clients.size;
     res.json({ status: 'ok', rooms: rooms.size, clients, uptime: Math.round(process.uptime()) });
+  });
+
+  app.get('/api/config', (req, res) => {
+    res.json({
+      hasAuth: !!process.env.SUPABASE_URL,
+      hasAI: !!process.env.ANTHROPIC_API_KEY,
+      allowGuests: process.env.ALLOW_GUESTS !== 'false',
+    });
   });
 
   app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
@@ -352,6 +314,7 @@ function createServer(options = {}) {
 }
 
 if (require.main === module) {
+  serverAuth.init();
   const port = Number(process.env.PORT) || 3000;
   const ttlMinutes = Number(process.env.ROOM_TTL_MINUTES);
   const instance = createServer({ roomTtlMs: Number.isFinite(ttlMinutes) ? ttlMinutes * 60 * 1000 : undefined });
