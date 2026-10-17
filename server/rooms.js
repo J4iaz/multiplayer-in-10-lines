@@ -45,4 +45,67 @@ function validatePatch(patch, roomState) {
   return { patch };
 }
 
-module.exports = { sanitizeName, colorFor, validatePatch, COLORS, ROOM_ID_RE, CLIENT_ID_RE, LIMITS, FORBIDDEN_KEYS, KEY_RE };
+function createRoom(id) {
+  return {
+    id,
+    state: new Map(),
+    clients: new Map(),
+    version: 0,
+    cleanupTimer: null,
+    ownerId: null,
+    passwordHash: null,
+    locked: false,
+    viewerOnly: false,
+    bannedUsers: new Set(),
+    failedAttempts: new Map(),
+    chatHistory: [],
+  };
+}
+
+const ATTEMPT_WINDOW_MS = 10 * 60 * 1000;
+const MAX_FAILED_ATTEMPTS = 5;
+
+function isPasswordRateLimited(room, ip) {
+  if (!room || !room.failedAttempts || !ip) return false;
+  const record = room.failedAttempts.get(ip);
+  if (!record) return false;
+  if (Date.now() > record.resetAt) {
+    room.failedAttempts.delete(ip);
+    return false;
+  }
+  return record.count >= MAX_FAILED_ATTEMPTS;
+}
+
+function recordFailedAttempt(room, ip) {
+  if (!room || !room.failedAttempts || !ip) return null;
+  const now = Date.now();
+  let record = room.failedAttempts.get(ip);
+  if (!record || now > record.resetAt) {
+    record = { count: 0, resetAt: now + ATTEMPT_WINDOW_MS };
+    room.failedAttempts.set(ip, record);
+  }
+  record.count++;
+  return record;
+}
+
+function clearFailedAttempts(room, ip) {
+  if (room && room.failedAttempts && ip) {
+    room.failedAttempts.delete(ip);
+  }
+}
+
+module.exports = {
+  sanitizeName,
+  colorFor,
+  validatePatch,
+  createRoom,
+  isPasswordRateLimited,
+  recordFailedAttempt,
+  clearFailedAttempts,
+  COLORS,
+  ROOM_ID_RE,
+  CLIENT_ID_RE,
+  LIMITS,
+  FORBIDDEN_KEYS,
+  KEY_RE,
+};

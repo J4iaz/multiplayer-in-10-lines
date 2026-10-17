@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js tests/auth.test.js",
+    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js tests/auth.test.js tests/roles.test.js tests/chat-reactions.test.js tests/whiteboard.test.js",
     "lint": "eslint server.js server/ tests/"
   },
   "engines": {

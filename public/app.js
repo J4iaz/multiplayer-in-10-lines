@@ -61,18 +61,98 @@
     }
   }
 
+  // Pre-fill password from sessionStorage if available
+  try {
+    var rawHash = location.hash.replace(/^#/, '');
+    var hashRoom = (location.hash.match(/room=([A-Za-z0-9-]+)/) || [])[1];
+    var curRoomId = hashRoom || (rawHash && rawHash.indexOf('=') === -1 ? rawHash : '');
+    if (curRoomId) {
+      var savedPwd = sessionStorage.getItem('room_pwd_' + curRoomId);
+      if (savedPwd) joinOptions.password = savedPwd;
+    }
+  } catch (e) {}
+
   // ---- Multiplayer: this is the whole integration ----
   var room = Multiplayer.join(joinOptions);
-  room.enableCursors({ container: board });
-  room.onStateChange(function (state) {
-    latest = state;
-    render();
-  });
-  room.onPresenceChange(renderPresence);
-  room.onStatusChange(renderStatus);
-  room.onError(function (err) {
-    toast('Sync error: ' + err.message);
-  });
+
+  function setupRoomListeners() {
+    room.enableCursors({ container: board });
+    room.onStateChange(function (state) {
+      latest = state;
+      render();
+    });
+    room.onPresenceChange(function (users) {
+      renderPresence(users);
+      renderParticipantsModal();
+      render();
+    });
+    room.onStatusChange(function (info) {
+      renderStatus(info);
+      if (info.status === 'connected') {
+        var pwdModal = $('password-modal');
+        if (pwdModal) {
+          pwdModal.hidden = true;
+          pwdModal.setAttribute('hidden', '');
+          pwdModal.classList.remove('is-open');
+        }
+      }
+      render();
+    });
+    room.onError(function (err) {
+      if (err.code === 'bad_password') {
+        var pwdModal = $('password-modal');
+        if (pwdModal) {
+          pwdModal.removeAttribute('hidden');
+          pwdModal.hidden = false;
+          pwdModal.classList.add('is-open');
+          var errEl = $('password-error-msg');
+          if (errEl) {
+            errEl.textContent = err.message || 'Incorrect room password.';
+            errEl.style.display = 'block';
+          }
+          var passInp = $('room-entry-password');
+          if (passInp) setTimeout(function () { passInp.focus(); }, 50);
+        }
+      } else if (err.code === 'kicked') {
+        toast('You have been kicked by the host.');
+      } else if (err.code === 'banned') {
+        toast('You have been banned from this room.');
+      } else if (err.code === 'room_locked') {
+        toast('This room is locked by the host.');
+      } else if (err.code === 'read_only') {
+        toast('Viewers cannot edit the board.');
+      } else {
+        toast('Sync error: ' + err.message);
+      }
+    });
+
+    if (room.onHostEvent) {
+      room.onHostEvent(function (evt) {
+        if (evt.action === 'lock_room') {
+          var t = $('lock-room-toggle');
+          if (t) t.checked = !!evt.value;
+          toast(evt.value ? 'Room locked by host' : 'Room unlocked by host');
+        } else if (evt.action === 'viewer_only') {
+          var v = $('viewer-only-toggle');
+          if (v) v.checked = !!evt.value;
+          toast(evt.value ? 'Viewer-only mode enabled' : 'Viewer-only mode disabled');
+          render();
+        } else if (evt.action === 'set_password') {
+          var p = $('password-status-hint');
+          if (p) p.textContent = evt.hasPassword ? 'Password protection is enabled.' : 'No password currently set.';
+        }
+      });
+    }
+
+    if (room.onRoleChange) {
+      room.onRoleChange(function (newRole) {
+        toast('Your role is now ' + (newRole === 'viewer' ? 'Viewer' : (newRole === 'owner' ? 'Host' : 'Editor')));
+        render();
+      });
+    }
+  }
+
+  setupRoomListeners();
   // -----------------------------------------------------
 
   function saveRoomToHistory(id) {
@@ -173,6 +253,22 @@
     } else if (seen.size === 0 && emptyHint.hidden) {
       emptyHint.hidden = false;
     }
+
+    var isViewer = room.role === 'viewer';
+    var viewOnlyBadge = $('view-only-badge');
+    if (viewOnlyBadge) viewOnlyBadge.style.display = isViewer ? 'inline-flex' : 'none';
+    var addNoteBtn = $('add-note');
+    if (addNoteBtn) {
+      addNoteBtn.disabled = isViewer;
+      addNoteBtn.style.opacity = isViewer ? '0.4' : '1';
+    }
+    var emptyAddNoteBtn = $('empty-add-note');
+    if (emptyAddNoteBtn) {
+      emptyAddNoteBtn.disabled = isViewer;
+      emptyAddNoteBtn.style.opacity = isViewer ? '0.4' : '1';
+    }
+    var hostMenuBtn = $('host-menu-btn');
+    if (hostMenuBtn) hostMenuBtn.style.display = room.role === 'owner' ? 'inline-flex' : 'none';
   }
 
   function isAuthor(note) {
@@ -194,6 +290,10 @@
     el.tabIndex = 0;
     el.dataset.id = id;
     el.setAttribute('aria-roledescription', 'sticky note');
+
+    var editorPill = document.createElement('div');
+    editorPill.className = 'note-editor-pill';
+    editorPill.style.display = 'none';
 
     var bar = document.createElement('div');
     bar.className = 'note-bar';
@@ -233,6 +333,7 @@
     text.placeholder = 'Write something…';
     text.setAttribute('aria-label', 'Note text');
 
+    el.appendChild(editorPill);
     bar.appendChild(author);
     bar.appendChild(lockIcon);
     bar.appendChild(colorBtn);
@@ -240,7 +341,7 @@
     el.appendChild(bar);
     el.appendChild(text);
     board.appendChild(el);
-    return { el: el, text: text, author: author, lockIcon: lockIcon, colorBtn: colorBtn, delBtn: delBtn };
+    return { el: el, text: text, author: author, lockIcon: lockIcon, colorBtn: colorBtn, delBtn: delBtn, editorPill: editorPill };
   }
 
   function upsertNote(id) {
@@ -256,7 +357,8 @@
     entry.author.textContent = authorName; // textContent keeps user input inert
     entry.el.setAttribute('aria-label', 'Sticky note by ' + authorName);
 
-    var canEdit = isAuthor(note);
+    var isViewer = room.role === 'viewer';
+    var canEdit = !isViewer && isAuthor(note);
     if (canEdit) {
       entry.text.readOnly = false;
       entry.el.classList.remove('is-readonly');
@@ -267,10 +369,35 @@
     } else {
       entry.text.readOnly = true;
       entry.el.classList.add('is-readonly');
-      if (entry.lockIcon) entry.lockIcon.style.display = 'inline-block';
+      if (entry.lockIcon) {
+        entry.lockIcon.style.display = 'inline-block';
+        entry.lockIcon.title = isViewer ? 'View-only mode: editing is disabled' : ('Only ' + authorName + ' can edit this note (you can still move it)');
+      }
       if (entry.colorBtn) entry.colorBtn.style.display = 'none';
       if (entry.delBtn) entry.delBtn.style.display = 'none';
-      entry.text.title = 'Only ' + authorName + ' can edit this note (you can still move it)';
+      entry.text.title = isViewer ? 'View-only mode: editing is disabled' : ('Only ' + authorName + ' can edit this note (you can still move it)');
+    }
+
+    // Active note editor pill indicator
+    var editingUser = null;
+    var pres = room.getPresence ? room.getPresence() : [];
+    for (var i = 0; i < pres.length; i++) {
+      if (pres[i].id !== room.me.id && pres[i].editingNoteId === id) {
+        editingUser = pres[i];
+        break;
+      }
+    }
+    if (editingUser && entry.editorPill) {
+      entry.editorPill.style.display = 'inline-flex';
+      entry.editorPill.style.background = editingUser.color;
+      entry.editorPill.textContent = '';
+      var dot = document.createElement('span');
+      dot.className = 'editor-dot';
+      var txt = document.createTextNode(editingUser.name + ' is editing…');
+      entry.editorPill.appendChild(dot);
+      entry.editorPill.appendChild(txt);
+    } else if (entry.editorPill) {
+      entry.editorPill.style.display = 'none';
     }
 
     // Don't fight the local user: skip text while the author types, position while they drag.
@@ -349,6 +476,99 @@
     presenceEl.setAttribute('aria-label', list.length + (list.length === 1 ? ' person' : ' people') + ' in this room');
   }
 
+  function renderParticipantsModal() {
+    var modal = $('participants-modal');
+    if (!modal || modal.hidden) return;
+    var list = room.getPresence ? room.getPresence() : [];
+    var countEl = $('participants-count');
+    if (countEl) countEl.textContent = list.length;
+    var container = $('participants-list');
+    if (!container) return;
+    container.textContent = '';
+    var me = room.me;
+    var isOwner = room.role === 'owner';
+
+    list.forEach(function (u) {
+      var li = document.createElement('li');
+      li.className = 'participant-item';
+
+      var left = document.createElement('div');
+      left.className = 'participant-left';
+
+      var avatar = document.createElement('div');
+      avatar.className = 'participant-avatar';
+      avatar.style.background = u.color;
+      avatar.textContent = initials(u.name);
+
+      var details = document.createElement('div');
+      details.className = 'participant-details';
+
+      var nameRow = document.createElement('div');
+      nameRow.style.display = 'flex';
+      nameRow.style.alignItems = 'center';
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'participant-name';
+      nameSpan.textContent = u.name;
+      nameRow.appendChild(nameSpan);
+
+      if (u.id === me.id) {
+        var youBadge = document.createElement('span');
+        youBadge.className = 'participant-you';
+        youBadge.textContent = '(you)';
+        nameRow.appendChild(youBadge);
+      }
+
+      var roleBadge = document.createElement('span');
+      var roleClass = u.role === 'owner' ? 'role-badge-owner' : (u.role === 'viewer' ? 'role-badge-viewer' : 'role-badge-editor');
+      roleBadge.className = 'role-badge ' + roleClass;
+      roleBadge.textContent = u.role === 'owner' ? 'Host' : (u.role === 'viewer' ? 'Viewer' : 'Editor');
+
+      details.appendChild(nameRow);
+      details.appendChild(roleBadge);
+      left.appendChild(avatar);
+      left.appendChild(details);
+      li.appendChild(left);
+
+      if (isOwner && u.id !== me.id) {
+        var actions = document.createElement('div');
+        actions.className = 'participant-actions';
+
+        var roleBtn = document.createElement('button');
+        roleBtn.type = 'button';
+        roleBtn.className = 'btn-participant-action';
+        roleBtn.textContent = u.role === 'viewer' ? 'Make Editor' : 'Make Viewer';
+        roleBtn.onclick = function () {
+          var targetRole = u.role === 'viewer' ? 'editor' : 'viewer';
+          if (room.sendHostAction) room.sendHostAction('set_role', u.id, targetRole);
+        };
+
+        var kickBtn = document.createElement('button');
+        kickBtn.type = 'button';
+        kickBtn.className = 'btn-participant-action btn-kick';
+        kickBtn.textContent = 'Kick';
+        kickBtn.onclick = function () {
+          if (room.sendHostAction) room.sendHostAction('kick', u.id);
+        };
+
+        var banBtn = document.createElement('button');
+        banBtn.type = 'button';
+        banBtn.className = 'btn-participant-action btn-ban';
+        banBtn.textContent = 'Ban';
+        banBtn.onclick = function () {
+          if (room.sendHostAction) room.sendHostAction('ban', u.id);
+        };
+
+        actions.appendChild(roleBtn);
+        actions.appendChild(kickBtn);
+        actions.appendChild(banBtn);
+        li.appendChild(actions);
+      }
+
+      container.appendChild(li);
+    });
+  }
+
   var STATUS_TEXT = { connecting: 'Connecting…', connected: 'Live', reconnecting: 'Reconnecting…', disconnected: 'Offline' };
 
   function renderStatus(info) {
@@ -368,6 +588,10 @@
   // ---------- actions (all go through room.setState) ----------
 
   function addNote(x, y) {
+    if (room.role === 'viewer') {
+      toast('View-only mode: cannot add notes');
+      return;
+    }
     var id = newId();
     var patch = {};
     patch['note:' + id] = {
@@ -384,6 +608,10 @@
   }
 
   function deleteNote(id) {
+    if (room.role === 'viewer') {
+      toast('View-only mode: cannot delete notes');
+      return;
+    }
     var note = getNote(id);
     if (!note) return;
     if (!isAuthor(note)) {
@@ -397,6 +625,10 @@
   }
 
   function cycleColor(id) {
+    if (room.role === 'viewer') {
+      toast('View-only mode: cannot change note color');
+      return;
+    }
     var note = getNote(id);
     if (!note) return;
     if (!isAuthor(note)) {
@@ -410,6 +642,7 @@
   function commitText(id) {
     clearTimeout(textTimers.get(id));
     textTimers.delete(id);
+    if (room.role === 'viewer') return;
     var entry = noteEls.get(id);
     var note = getNote(id);
     if (!entry || !note || !isAuthor(note) || note.text === entry.text.value) return;
@@ -417,6 +650,7 @@
   }
 
   function moveNote(id, dx, dy) {
+    if (room.role === 'viewer') return;
     var pos = getPos(id);
     room.setState('pos:' + id, {
       x: clamp(pos.x + dx, 0, BOARD_W - NOTE_W),
@@ -450,6 +684,7 @@
   }
 
   board.addEventListener('pointerdown', function (event) {
+    if (room.role === 'viewer') return;
     var handle = event.target.closest('[data-role="handle"]');
     if (!handle || event.target.closest('button') || event.button !== 0) return;
     var el = handle.closest('.note');
@@ -485,6 +720,10 @@
   // ---------- board events ----------
 
   board.addEventListener('dblclick', function (event) {
+    if (room.role === 'viewer') {
+      toast('View-only mode: cannot add notes');
+      return;
+    }
     if (event.target !== board && event.target !== emptyHint) return;
     var p = boardPoint(event);
     addNote(p.x - NOTE_W / 2, p.y - 20);
@@ -502,8 +741,11 @@
     if (!event.target.classList.contains('note-text')) return;
     var noteEl = event.target.closest('.note');
     if (!noteEl) return;
+    if (room.setNoteFocus) room.setNoteFocus(noteEl.dataset.id);
     var note = getNote(noteEl.dataset.id);
-    if (note && !isAuthor(note)) {
+    if (room.role === 'viewer') {
+      toast('View-only mode: editing is disabled');
+    } else if (note && !isAuthor(note)) {
       toast('Read-only: only ' + (note.author || 'the author') + ' can edit text (you can still drag & move it)');
     }
   });
@@ -512,10 +754,10 @@
     if (!event.target.classList.contains('note-text')) return;
     var id = event.target.closest('.note').dataset.id;
     var note = getNote(id);
-    if (!isAuthor(note)) {
+    if (room.role === 'viewer' || !isAuthor(note)) {
       event.preventDefault();
       event.target.value = note ? (note.text || '') : '';
-      toast('Only ' + (note && note.author ? note.author : 'the author') + ' can edit this note');
+      toast(room.role === 'viewer' ? 'View-only mode: editing is disabled' : ('Only ' + (note && note.author ? note.author : 'the author') + ' can edit this note'));
       return;
     }
     clearTimeout(textTimers.get(id));
@@ -529,9 +771,10 @@
 
   board.addEventListener('focusout', function (event) {
     if (!event.target.classList.contains('note-text')) return;
+    if (room.setNoteFocus) room.setNoteFocus(null);
     var id = event.target.closest('.note').dataset.id;
     var note = getNote(id);
-    if (isAuthor(note)) {
+    if (isAuthor(note) && room.role !== 'viewer') {
       commitText(id);
     }
     setTimeout(render, 0); // pick up any remote text we skipped while typing
@@ -544,6 +787,7 @@
       return;
     }
     if (!target.classList.contains('note')) return;
+    if (room.role === 'viewer') return;
     var id = target.dataset.id;
     var step = event.shiftKey ? 40 : 10;
     var moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
@@ -923,11 +1167,148 @@
     });
   }
 
+  // Host Controls Modal Wiring
+  var hostModal = $('host-modal');
+  var hostMenuBtn = $('host-menu-btn');
+  var hostModalClose = $('host-modal-close');
+  var hostModalDoneBtn = $('host-modal-done-btn');
+  var lockRoomToggle = $('lock-room-toggle');
+  var viewerOnlyToggle = $('viewer-only-toggle');
+  var roomPasswordInput = $('room-password-input');
+  var setPasswordBtn = $('set-password-btn');
+  var passwordStatusHint = $('password-status-hint');
+
+  function openHostModal() {
+    if (!hostModal) return;
+    hostModal.removeAttribute('hidden');
+    hostModal.hidden = false;
+    hostModal.setAttribute('aria-hidden', 'false');
+    hostModal.classList.add('is-open');
+  }
+
+  function closeHostModal() {
+    if (!hostModal) return;
+    hostModal.classList.remove('is-open');
+    hostModal.setAttribute('hidden', '');
+    hostModal.hidden = true;
+    hostModal.setAttribute('aria-hidden', 'true');
+  }
+
+  if (hostMenuBtn) hostMenuBtn.addEventListener('click', openHostModal);
+  if (hostModalClose) hostModalClose.addEventListener('click', closeHostModal);
+  if (hostModalDoneBtn) hostModalDoneBtn.addEventListener('click', closeHostModal);
+  if (hostModal) {
+    hostModal.addEventListener('click', function (e) {
+      if (e.target === hostModal) closeHostModal();
+    });
+  }
+
+  if (lockRoomToggle) {
+    lockRoomToggle.addEventListener('change', function () {
+      if (room.sendHostAction) {
+        room.sendHostAction('lock_room', lockRoomToggle.checked);
+        toast(lockRoomToggle.checked ? 'Room locked' : 'Room unlocked');
+      }
+    });
+  }
+
+  if (viewerOnlyToggle) {
+    viewerOnlyToggle.addEventListener('change', function () {
+      if (room.sendHostAction) {
+        room.sendHostAction('viewer_only', viewerOnlyToggle.checked);
+        toast(viewerOnlyToggle.checked ? 'Viewer-only mode enabled' : 'Viewer-only mode disabled');
+      }
+    });
+  }
+
+  if (setPasswordBtn) {
+    setPasswordBtn.addEventListener('click', function () {
+      if (!roomPasswordInput) return;
+      var pwd = roomPasswordInput.value.trim();
+      if (room.sendHostAction) {
+        room.sendHostAction('set_password', pwd || null);
+        toast(pwd ? 'Room password updated' : 'Room password removed');
+        if (passwordStatusHint) {
+          passwordStatusHint.textContent = pwd ? 'Password protection is enabled.' : 'No password currently set.';
+        }
+      }
+    });
+  }
+
+  // Participants Panel Wiring
+  var participantsModal = $('participants-modal');
+  var participantsModalClose = $('participants-modal-close');
+  var participantsModalCloseBtn = $('participants-modal-close-btn');
+
+  function openParticipantsModal() {
+    if (!participantsModal) return;
+    participantsModal.removeAttribute('hidden');
+    participantsModal.hidden = false;
+    participantsModal.setAttribute('aria-hidden', 'false');
+    participantsModal.classList.add('is-open');
+    renderParticipantsModal();
+  }
+
+  function closeParticipantsModal() {
+    if (!participantsModal) return;
+    participantsModal.classList.remove('is-open');
+    participantsModal.setAttribute('hidden', '');
+    participantsModal.hidden = true;
+    participantsModal.setAttribute('aria-hidden', 'true');
+  }
+
+  if (presenceEl) {
+    presenceEl.addEventListener('click', function () {
+      openParticipantsModal();
+    });
+  }
+  if (participantsModalClose) participantsModalClose.addEventListener('click', closeParticipantsModal);
+  if (participantsModalCloseBtn) participantsModalCloseBtn.addEventListener('click', closeParticipantsModal);
+  if (participantsModal) {
+    participantsModal.addEventListener('click', function (e) {
+      if (e.target === participantsModal) closeParticipantsModal();
+    });
+  }
+
+  // Password Entry Modal Wiring
+  var passwordModal = $('password-modal');
+  var passwordCancelBtn = $('password-cancel-btn');
+  var passwordSubmitBtn = $('password-submit-btn');
+  var roomEntryPassword = $('room-entry-password');
+  var passwordErrorMsg = $('password-error-msg');
+  var passwordForm = $('password-form');
+
+  function submitRoomPassword() {
+    if (!roomEntryPassword) return;
+    var pwd = roomEntryPassword.value.trim();
+    if (!pwd) {
+      roomEntryPassword.focus();
+      return;
+    }
+    sessionStorage.setItem('room_pwd_' + room.id, pwd);
+    joinOptions.password = pwd;
+    if (passwordErrorMsg) passwordErrorMsg.style.display = 'none';
+    toast('Unlocking room…');
+    room.disconnect();
+    room = Multiplayer.join(joinOptions);
+    setupRoomListeners();
+  }
+
+  if (passwordSubmitBtn) passwordSubmitBtn.addEventListener('click', submitRoomPassword);
+  if (passwordForm) passwordForm.addEventListener('submit', function (e) { e.preventDefault(); submitRoomPassword(); });
+  if (passwordCancelBtn) {
+    passwordCancelBtn.addEventListener('click', function () {
+      location.href = '/';
+    });
+  }
+
   window.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       if (inviteModal && !inviteModal.hidden) closeInviteModal();
       if (joinModal && !joinModal.hidden) closeJoinModal();
       if (authModal && !authModal.hidden) closeAuthModal();
+      if (hostModal && !hostModal.hidden) closeHostModal();
+      if (participantsModal && !participantsModal.hidden) closeParticipantsModal();
     }
   });
 

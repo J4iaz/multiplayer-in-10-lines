@@ -58,7 +58,8 @@ test('join returns welcome, empty snapshot and presence', async () => {
     userId: 'guest-client-aaaaaaaa',
     name: 'Ada',
     color: welcome.color,
-    role: 'editor',
+    role: 'owner',
+    editingNoteId: null,
   });
   ws.close();
 });

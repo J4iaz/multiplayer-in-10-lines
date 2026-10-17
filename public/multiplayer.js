@@ -19,7 +19,7 @@
   }
   var VALUE_BYTES_MAX = 10 * 1024;
   var NAME_MAX = 50;
-  var FATAL_CLOSE_CODES = { 4400: true, 4401: true, 4409: true, 4429: true };
+  var FATAL_CLOSE_CODES = { 4400: true, 4401: true, 4403: true, 4409: true, 4429: true };
   var ID_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'; // 32 chars, no ambiguous ones
   var NAME_STORAGE_KEY = 'multiplayer:name';
 
@@ -192,11 +192,14 @@
     var timer = null;
 
     function toLocal(event) {
+      if (typeof opts.toLocal === 'function') return opts.toLocal(event, container);
       if (isBody) return { x: event.pageX, y: event.pageY };
       var rect = container.getBoundingClientRect();
+      var scaleX = rect.width ? (container.offsetWidth ? rect.width / container.offsetWidth : 1) : 1;
+      var scaleY = rect.height ? (container.offsetHeight ? rect.height / container.offsetHeight : 1) : 1;
       return {
-        x: event.clientX - rect.left - container.clientLeft + container.scrollLeft,
-        y: event.clientY - rect.top - container.clientTop + container.scrollTop,
+        x: (event.clientX - rect.left) / scaleX - container.clientLeft + container.scrollLeft,
+        y: (event.clientY - rect.top) / scaleY - container.clientTop + container.scrollTop,
       };
     }
 
@@ -226,7 +229,9 @@
     target.addEventListener('pointermove', onMove, { passive: true });
     (isBody ? global.document.documentElement : container).addEventListener('pointerleave', onLeave);
 
-    function ensure(id, name, color) {
+    var presenceMap = {};
+
+    function ensure(id, name, color, avatar, expression) {
       var c = cursors[id];
       if (!c) {
         var el = global.document.createElement('div');
@@ -261,16 +266,47 @@
         label.style.color = '#fff';
         label.style.whiteSpace = 'nowrap';
         label.style.boxShadow = '0 1px 3px rgba(0,0,0,.25)';
+        label.style.display = 'inline-flex';
+        label.style.alignItems = 'center';
+        label.style.gap = '4px';
+
+        var avatarBadge = global.document.createElement('span');
+        avatarBadge.className = 'mp-cursor-avatar';
+        avatarBadge.style.display = 'none';
+        avatarBadge.style.width = '14px';
+        avatarBadge.style.height = '14px';
+        avatarBadge.style.borderRadius = '50%';
+        avatarBadge.style.overflow = 'hidden';
+        avatarBadge.style.flexShrink = '0';
+
+        var textSpan = global.document.createElement('span');
+        textSpan.className = 'mp-cursor-name';
+
+        label.appendChild(avatarBadge);
+        label.appendChild(textSpan);
 
         el.appendChild(svg);
         el.appendChild(label);
         layer.appendChild(el);
-        c = cursors[id] = { el: el, label: label, arrow: arrow, fresh: true };
+        c = cursors[id] = { el: el, label: label, textSpan: textSpan, avatarBadge: avatarBadge, arrow: arrow, fresh: true };
       }
-      if (name != null) c.label.textContent = name; // textContent: never interpreted as HTML
+      if (name != null) c.textSpan.textContent = name; // textContent: never interpreted as HTML
       if (color) {
         c.arrow.setAttribute('fill', color);
         c.label.style.background = color;
+      }
+      var effectiveAvatar = avatar !== undefined ? avatar : (presenceMap[id] ? presenceMap[id].avatar : null);
+      if (effectiveAvatar) {
+        c.avatarBadge.style.display = 'inline-flex';
+        c.avatarBadge.innerHTML = effectiveAvatar;
+        var svgEl = c.avatarBadge.querySelector('svg');
+        if (svgEl) {
+          svgEl.setAttribute('width', '14');
+          svgEl.setAttribute('height', '14');
+          svgEl.style.display = 'block';
+        }
+      } else {
+        c.avatarBadge.style.display = 'none';
       }
       return c;
     }
@@ -289,6 +325,10 @@
           return;
         }
         var c = ensure(msg.id, msg.name, msg.color);
+        if (typeof opts.renderCursor === 'function') {
+          opts.renderCursor(c, msg);
+          return;
+        }
         if (c.fresh) {
           // Place instantly on first appearance instead of sliding in from (0,0).
           c.el.style.transition = 'none';
@@ -303,8 +343,10 @@
       syncPresence: function (users) {
         var alive = {};
         for (var i = 0; i < users.length; i++) {
-          alive[users[i].id] = true;
-          if (cursors[users[i].id]) ensure(users[i].id, users[i].name, users[i].color);
+          var u = users[i];
+          alive[u.id] = true;
+          presenceMap[u.id] = u;
+          if (cursors[u.id]) ensure(u.id, u.name, u.color, u.avatar, u.expression);
         }
         Object.keys(cursors).forEach(function (id) {
           if (!alive[id]) remove(id);
@@ -343,6 +385,8 @@
     var reconnectMaxMs = opts.reconnectMaxMs || 30000;
     var pingIntervalMs = opts.pingIntervalMs || 25000;
     var token = opts.token || null;
+    var password = opts.password || null;
+    var setPassword = opts.setPassword || null;
 
     var me = { id: randomId(16), name: name, color: '#888888', role: 'editor', user: null };
     var state = Object.create(null); // local view (server state + optimistic writes)
@@ -488,6 +532,19 @@
           if (msg.role) me.role = msg.role;
           if (msg.user) me.user = msg.user;
           return;
+        case 'role_change':
+          if (msg.role) {
+            me.role = msg.role;
+            emitter.emit('role_change', function () {
+              return [me.role];
+            });
+          }
+          return;
+        case 'host_event':
+          emitter.emit('host_event', function () {
+            return [msg];
+          });
+          return;
         case 'snapshot':
           return applySnapshot(msg.state);
         case 'state_update':
@@ -498,6 +555,41 @@
           return emitPresence();
         case 'cursor':
           if (cursorLayer && msg.id !== me.id) cursorLayer.update(msg);
+          return;
+        case 'draw_live':
+          emitter.emit('draw_live', function () {
+            return [msg];
+          });
+          return;
+        case 'chat':
+          emitter.emit('chat', function () {
+            return [msg];
+          });
+          return;
+        case 'chat_history':
+          emitter.emit('chat_history', function () {
+            return [msg.messages || []];
+          });
+          return;
+        case 'chat_typing':
+          emitter.emit('chat_typing', function () {
+            return [msg];
+          });
+          return;
+        case 'chat_delete':
+          emitter.emit('chat_delete', function () {
+            return [msg];
+          });
+          return;
+        case 'reaction':
+          emitter.emit('reaction', function () {
+            return [msg];
+          });
+          return;
+        case 'expression':
+          emitter.emit('expression', function () {
+            return [msg];
+          });
           return;
         case 'error': {
           var err = new Error(msg.message || 'Server error');
@@ -536,6 +628,8 @@
         lastSeen = Date.now();
         var joinMsg = { type: 'join', room: roomId, clientId: me.id, name: me.name };
         if (token) joinMsg.token = token;
+        if (password) joinMsg.password = password;
+        if (setPassword) joinMsg.setPassword = setPassword;
         send(joinMsg);
         startPing();
       };
@@ -650,6 +744,10 @@
       get me() {
         return clone(me);
       },
+      /** 'owner' | 'editor' | 'viewer' */
+      get role() {
+        return me.role;
+      },
       /** 'connecting' | 'connected' | 'reconnecting' | 'disconnected' */
       get status() {
         return status;
@@ -694,6 +792,96 @@
       /** fn(Error) for server-side rejections (invalid patch, room full...). Returns unsubscribe. */
       onError: function (fn) {
         return emitter.on('error', fn);
+      },
+      /** fn(hostEvent). Returns unsubscribe. */
+      onHostEvent: function (fn) {
+        return emitter.on('host_event', fn);
+      },
+      /** fn(newRole). Returns unsubscribe. */
+      onRoleChange: function (fn) {
+        return emitter.on('role_change', fn);
+      },
+      /** Send host action (host/owner only) */
+      sendHostAction: function (action, targetIdOrValue, maybeValue) {
+        if (typeof action === 'object') {
+          return send(Object.assign({ type: 'host_action' }, action));
+        }
+        var payload = { type: 'host_action', action: action };
+        if (action === 'lock_room' || action === 'viewer_only') {
+          payload.value = maybeValue !== undefined ? maybeValue : targetIdOrValue;
+        } else if (action === 'set_password') {
+          payload.password = maybeValue !== undefined ? maybeValue : targetIdOrValue;
+        } else if (action === 'set_role') {
+          payload.targetId = targetIdOrValue;
+          payload.role = maybeValue;
+        } else {
+          if (targetIdOrValue !== undefined) payload.targetId = targetIdOrValue;
+          if (maybeValue !== undefined) payload.value = maybeValue;
+        }
+        return send(payload);
+      },
+      /** Broadcast ephemeral focus of a note for active-editor tags */
+      setNoteFocus: function (noteId) {
+        if (isLive()) send({ type: 'note_focus', noteId: noteId });
+      },
+      /** Broadcast ephemeral live drawing stroke/shape */
+      sendDrawLive: function (data) {
+        if (isLive() && data && typeof data === 'object') {
+          return send(Object.assign({ type: 'draw_live' }, data));
+        }
+        return false;
+      },
+      /** Listen for ephemeral live drawing events */
+      onDrawLive: function (fn) {
+        return emitter.on('draw_live', fn);
+      },
+      /** Listen for live chat messages */
+      onChat: function (fn) {
+        return emitter.on('chat', fn);
+      },
+      /** Listen for room chat history sent on join */
+      onChatHistory: function (fn) {
+        return emitter.on('chat_history', fn);
+      },
+      /** Listen for typing indicators from peers */
+      onChatTyping: function (fn) {
+        return emitter.on('chat_typing', fn);
+      },
+      /** Listen for chat message deletion */
+      onChatDelete: function (fn) {
+        return emitter.on('chat_delete', fn);
+      },
+      /** Listen for floating emoji reactions */
+      onReaction: function (fn) {
+        return emitter.on('reaction', fn);
+      },
+      /** Listen for peer expression changes */
+      onExpression: function (fn) {
+        return emitter.on('expression', fn);
+      },
+      /** Send chat message */
+      sendChat: function (body) {
+        if (isLive()) send({ type: 'chat_send', body: body });
+      },
+      /** Send typing status */
+      sendTyping: function (on) {
+        if (isLive()) send({ type: 'chat_typing', on: !!on });
+      },
+      /** Delete own chat message */
+      deleteChat: function (id) {
+        if (isLive()) send({ type: 'chat_delete', id: id });
+      },
+      /** Send floating emoji reaction */
+      sendReaction: function (emoji) {
+        if (isLive()) send({ type: 'reaction', emoji: emoji });
+      },
+      /** Update custom SVG avatar */
+      setAvatar: function (avatar) {
+        if (isLive()) send({ type: 'set_avatar', avatar: avatar });
+      },
+      /** Set current expression ('happy', 'surprised', 'laughing', 'thinking', 'neutral') */
+      setExpression: function (expression) {
+        if (isLive()) send({ type: 'set_expression', expression: expression });
       },
 
       getPresence: function () {

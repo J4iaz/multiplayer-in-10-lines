@@ -14,6 +14,7 @@
     <script src="/multiplayer.js" defer></script>
     <script src="/glass-fold.js" defer></script>
     <script src="/liquid-metal.js" defer></script>
+    <script src="/modules/whiteboard.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -68,7 +69,21 @@
             </span>
 
             <!-- Presence Avatars -->
-            <ul id="presence" class="presence" aria-label="People in this room"></ul>
+            <ul id="presence" class="presence" aria-label="People in this room" title="Click to view participants"></ul>
+
+            <!-- View-Only Badge (visible when role is viewer) -->
+            <span id="view-only-badge" class="view-only-badge" style="display:none;" title="View-Only Mode: editing is disabled">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>View Only</span>
+            </span>
+
+            <!-- Host Menu Button (visible only if room.role === 'owner') -->
+            <button id="host-menu-btn" class="btn-glass btn-host-controls" type="button" style="display:none;" aria-label="Host Controls" title="Host Controls">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2l7 4v6c0 5-3.5 9.5-7 10-3.5-.5-7-5-7-10V6l7-4z"/>
+              </svg>
+              <span>Host</span>
+            </button>
 
             <!-- Name Input -->
             <label class="visually-hidden" for="name-input">Your name</label>
@@ -257,6 +272,132 @@
           </p>
           <button id="auth-go-page-btn" class="btn-hero-primary" type="button" style="width:100%; justify-content:center; padding:12px;">
             <span>Go to Sign In / Sign Up →</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Host Controls Dialog Modal -->
+    <div id="host-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="host-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v6c0 5-3.5 9.5-7 10-3.5-.5-7-5-7-10V6l7-4z"/></svg>
+            </div>
+            <div>
+              <h3 id="host-modal-title" class="modal-title">Host Controls</h3>
+              <p class="modal-desc">Manage room security, permissions, and passwords</p>
+            </div>
+          </div>
+          <button id="host-modal-close" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+        </div>
+
+        <div class="modal-body host-controls-body">
+          <!-- Lock Room Toggle -->
+          <div class="control-row">
+            <div class="control-info">
+              <span class="control-label">Lock Room</span>
+              <span class="control-desc">Prevent new participants from joining</span>
+            </div>
+            <label class="switch-toggle" for="lock-room-toggle">
+              <input id="lock-room-toggle" type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Viewer-Only Toggle -->
+          <div class="control-row">
+            <div class="control-info">
+              <span class="control-label">Viewer-Only Mode</span>
+              <span class="control-desc">Only host can edit notes; other users are viewers</span>
+            </div>
+            <label class="switch-toggle" for="viewer-only-toggle">
+              <input id="viewer-only-toggle" type="checkbox" />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Password Setting -->
+          <div class="control-section">
+            <label class="modal-field-label" for="room-password-input">Room Password</label>
+            <div class="modal-input-group">
+              <input id="room-password-input" class="modal-input" type="password" placeholder="Leave blank to remove password" autocomplete="new-password" />
+              <button id="set-password-btn" class="modal-done-btn" type="button">Update</button>
+            </div>
+            <p id="password-status-hint" class="modal-lan-hint">No password currently set.</p>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <div class="modal-tip">
+            <span class="modal-status-dot"></span>
+            <span>Host privileges active</span>
+          </div>
+          <button id="host-modal-done-btn" class="btn-glass btn-primary-glass" type="button">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Participants Panel Modal -->
+    <div id="participants-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card modal-card-wide" role="dialog" aria-modal="true" aria-labelledby="participants-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div>
+              <h3 id="participants-modal-title" class="modal-title">Participants (<span id="participants-count">0</span>)</h3>
+              <p class="modal-desc">People currently connected to this board</p>
+            </div>
+          </div>
+          <button id="participants-modal-close" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+        </div>
+
+        <div class="modal-body" style="max-height: 380px; overflow-y: auto;">
+          <ul id="participants-list" class="participants-list">
+            <!-- Dynamically populated user cards -->
+          </ul>
+        </div>
+
+        <div class="modal-footer">
+          <div class="modal-tip">
+            <span class="modal-status-dot"></span>
+            <span id="participants-role-hint">Live presence</span>
+          </div>
+          <button id="participants-modal-close-btn" class="modal-done-btn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room Password Entry Modal -->
+    <div id="password-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div>
+              <h3 id="password-modal-title" class="modal-title">Password Required</h3>
+              <p class="modal-desc">This room is password-protected by the host</p>
+            </div>
+          </div>
+        </div>
+
+        <form id="password-form" class="modal-body" onsubmit="return false;">
+          <label class="modal-field-label" for="room-entry-password">Room Password</label>
+          <div class="modal-input-group">
+            <input id="room-entry-password" class="modal-input" type="password" placeholder="Enter room password…" autocomplete="current-password" required />
+          </div>
+          <p id="password-error-msg" class="password-error-text" style="display:none; color:var(--bad); font-size:12px; margin-top:4px;"></p>
+        </form>
+
+        <div class="modal-footer">
+          <button id="password-cancel-btn" class="modal-done-btn" type="button">Cancel</button>
+          <button id="password-submit-btn" class="btn-glass btn-primary-glass" type="button">
+            <span>Unlock Room</span>
           </button>
         </div>
       </div>

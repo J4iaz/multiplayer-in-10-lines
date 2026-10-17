@@ -40,7 +40,7 @@ test('Tokenless join succeeds when ALLOW_GUESTS !== "false"', async () => {
 
   const welcome = await waitForMessage(ws, byType('welcome'));
   assert.equal(welcome.name, 'Ada Guest');
-  assert.equal(welcome.role, 'editor');
+  assert.equal(welcome.role, 'owner');
   assert.ok(welcome.user);
   assert.equal(welcome.user.role, 'editor');
   assert.equal(welcome.user.isGuest, true);
@@ -48,7 +48,7 @@ test('Tokenless join succeeds when ALLOW_GUESTS !== "false"', async () => {
 
   const presence = await waitForMessage(ws, byType('presence'));
   assert.equal(presence.users[0].name, 'Ada Guest');
-  assert.equal(presence.users[0].role, 'editor');
+  assert.equal(presence.users[0].role, 'owner');
   assert.equal(presence.users[0].userId, welcome.user.id);
 
   ws.close();
@@ -83,7 +83,7 @@ test('Invalid token rejected with 4401 auth_expired', async () => {
   assert.equal(closed.code, 4401);
 });
 
-test('Valid mock token receives welcome with role "editor" and user metadata', async () => {
+test('Valid mock token receives welcome with role "owner" as room creator and user metadata', async () => {
   const ws = await connect(wsUrl);
   ws.send(JSON.stringify({
     type: 'join',
@@ -93,7 +93,7 @@ test('Valid mock token receives welcome with role "editor" and user metadata', a
   }));
 
   const welcome = await waitForMessage(ws, byType('welcome'));
-  assert.equal(welcome.role, 'editor');
+  assert.equal(welcome.role, 'owner');
   assert.ok(welcome.user);
   assert.equal(welcome.user.role, 'editor');
   assert.equal(welcome.user.id, 'mock-user-123');
@@ -104,7 +104,7 @@ test('Valid mock token receives welcome with role "editor" and user metadata', a
   const presence = await waitForMessage(ws, byType('presence'));
   assert.equal(presence.users[0].name, 'Mock User');
   assert.equal(presence.users[0].userId, 'mock-user-123');
-  assert.equal(presence.users[0].role, 'editor');
+  assert.equal(presence.users[0].role, 'owner');
 
   ws.close();
 });
