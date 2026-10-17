@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: multiplayer-in-10-lines
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: ROOM_TTL_MINUTES
+        value: "60"
