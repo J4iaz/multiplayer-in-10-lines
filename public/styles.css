@@ -1147,8 +1147,31 @@ body {
 .note[data-color='blue']   .note-text { color: var(--note-blue-text); }
 .note[data-color='green']  .note-text { color: var(--note-green-text); }
 .note[data-color='purple'] .note-text { color: var(--note-purple-text); }
-.note-text::placeholder { color: rgba(255,255,255,0.16); }
 .note-text:focus { outline: none; }
+
+/* Read-only / non-author note styling (others can move it, but can't rewrite) */
+.note.is-readonly .note-text {
+  cursor: default;
+  user-select: text;
+}
+
+.note-lock-icon {
+  font-size: 11px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.5);
+  margin-left: 2px;
+  user-select: none;
+  display: none;
+  cursor: default;
+}
+
+.note.is-readonly .note-bar {
+  cursor: grab;
+}
+
+.note.is-readonly:hover .note-lock-icon {
+  color: rgba(255, 255, 255, 0.85);
+}
 
 /* ----------------------------------------------------------------
    10. CURSOR LABELS

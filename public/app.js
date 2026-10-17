@@ -127,6 +127,18 @@
     }
   }
 
+  function isAuthor(note) {
+    if (!note) return false;
+    var me = room.me;
+    if (note.authorId && me && me.id) {
+      if (note.authorId === me.id) return true;
+    }
+    if (note.author && me && me.name) {
+      if (note.author === me.name) return true;
+    }
+    return false;
+  }
+
   function createNoteEl(id) {
     var el = document.createElement('article');
     el.className = 'note';
@@ -140,6 +152,12 @@
 
     var author = document.createElement('span');
     author.className = 'note-author';
+
+    var lockIcon = document.createElement('span');
+    lockIcon.className = 'note-lock-icon';
+    lockIcon.setAttribute('aria-hidden', 'true');
+    lockIcon.title = 'Read-only: only the author can edit text (you can still move it)';
+    lockIcon.textContent = '🔒';
 
     var colorBtn = document.createElement('button');
     colorBtn.type = 'button';
@@ -164,12 +182,13 @@
     text.setAttribute('aria-label', 'Note text');
 
     bar.appendChild(author);
+    bar.appendChild(lockIcon);
     bar.appendChild(colorBtn);
     bar.appendChild(delBtn);
     el.appendChild(bar);
     el.appendChild(text);
     board.appendChild(el);
-    return { el: el, text: text, author: author };
+    return { el: el, text: text, author: author, lockIcon: lockIcon, colorBtn: colorBtn, delBtn: delBtn };
   }
 
   function upsertNote(id) {
@@ -184,6 +203,23 @@
     var authorName = typeof note.author === 'string' ? note.author : 'Someone';
     entry.author.textContent = authorName; // textContent keeps user input inert
     entry.el.setAttribute('aria-label', 'Sticky note by ' + authorName);
+
+    var canEdit = isAuthor(note);
+    if (canEdit) {
+      entry.text.readOnly = false;
+      entry.el.classList.remove('is-readonly');
+      if (entry.lockIcon) entry.lockIcon.style.display = 'none';
+      if (entry.colorBtn) entry.colorBtn.style.display = '';
+      if (entry.delBtn) entry.delBtn.style.display = '';
+      entry.text.removeAttribute('title');
+    } else {
+      entry.text.readOnly = true;
+      entry.el.classList.add('is-readonly');
+      if (entry.lockIcon) entry.lockIcon.style.display = 'inline-block';
+      if (entry.colorBtn) entry.colorBtn.style.display = 'none';
+      if (entry.delBtn) entry.delBtn.style.display = 'none';
+      entry.text.title = 'Only ' + authorName + ' can edit this note (you can still move it)';
+    }
 
     // Don't fight the local user: skip text while they type, position while they drag.
     var text = typeof note.text === 'string' ? note.text.slice(0, TEXT_MAX) : '';
@@ -281,7 +317,13 @@
   function addNote(x, y) {
     var id = newId();
     var patch = {};
-    patch['note:' + id] = { text: '', color: COLORS[Math.floor(Math.random() * COLORS.length)], author: room.me.name, createdAt: Date.now() };
+    patch['note:' + id] = {
+      text: '',
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      author: room.me.name,
+      authorId: room.me.id,
+      createdAt: Date.now()
+    };
     patch['pos:' + id] = { x: clamp(Math.round(x), 0, BOARD_W - NOTE_W), y: clamp(Math.round(y), 0, BOARD_H - NOTE_H), z: topZ() };
     room.setState(patch);
     var entry = noteEls.get(id);
@@ -289,6 +331,12 @@
   }
 
   function deleteNote(id) {
+    var note = getNote(id);
+    if (!note) return;
+    if (!isAuthor(note)) {
+      toast('Only ' + (note.author || 'the author') + ' can delete this note');
+      return;
+    }
     var patch = {};
     patch['note:' + id] = null;
     patch['pos:' + id] = null;
@@ -298,6 +346,10 @@
   function cycleColor(id) {
     var note = getNote(id);
     if (!note) return;
+    if (!isAuthor(note)) {
+      toast('Only ' + (note.author || 'the author') + ' can change this note color');
+      return;
+    }
     var next = COLORS[(COLORS.indexOf(note.color) + 1) % COLORS.length];
     room.setState('note:' + id, Object.assign({}, note, { color: next }));
   }
@@ -307,7 +359,7 @@
     textTimers.delete(id);
     var entry = noteEls.get(id);
     var note = getNote(id);
-    if (!entry || !note || note.text === entry.text.value) return;
+    if (!entry || !note || !isAuthor(note) || note.text === entry.text.value) return;
     room.setState('note:' + id, Object.assign({}, note, { text: entry.text.value.slice(0, TEXT_MAX) }));
   }
 
@@ -393,9 +445,26 @@
     else if (btn.dataset.action === 'color') cycleColor(id);
   });
 
+  board.addEventListener('focusin', function (event) {
+    if (!event.target.classList.contains('note-text')) return;
+    var noteEl = event.target.closest('.note');
+    if (!noteEl) return;
+    var note = getNote(noteEl.dataset.id);
+    if (note && !isAuthor(note)) {
+      toast('Read-only: only ' + (note.author || 'the author') + ' can edit text (you can still drag & move it)');
+    }
+  });
+
   board.addEventListener('input', function (event) {
     if (!event.target.classList.contains('note-text')) return;
     var id = event.target.closest('.note').dataset.id;
+    var note = getNote(id);
+    if (!isAuthor(note)) {
+      event.preventDefault();
+      event.target.value = note ? (note.text || '') : '';
+      toast('Only ' + (note && note.author ? note.author : 'the author') + ' can edit this note');
+      return;
+    }
     clearTimeout(textTimers.get(id));
     textTimers.set(
       id,
@@ -407,7 +476,11 @@
 
   board.addEventListener('focusout', function (event) {
     if (!event.target.classList.contains('note-text')) return;
-    commitText(event.target.closest('.note').dataset.id);
+    var id = event.target.closest('.note').dataset.id;
+    var note = getNote(id);
+    if (isAuthor(note)) {
+      commitText(id);
+    }
     setTimeout(render, 0); // pick up any remote text we skipped while typing
   });
 
@@ -425,11 +498,22 @@
       moveNote(id, moves[event.key][0], moves[event.key][1]);
       event.preventDefault();
     } else if (event.key === 'Delete' || event.key === 'Backspace') {
-      deleteNote(id);
-      board.focus();
+      var note = getNote(id);
+      if (isAuthor(note)) {
+        deleteNote(id);
+        board.focus();
+      } else {
+        toast('Only ' + (note && note.author ? note.author : 'the author') + ' can delete this note');
+      }
       event.preventDefault();
     } else if (event.key === 'Enter') {
-      noteEls.get(id).text.focus();
+      var note = getNote(id);
+      if (isAuthor(note)) {
+        var entry = noteEls.get(id);
+        if (entry) entry.text.focus();
+      } else {
+        toast('Read-only: only ' + (note && note.author ? note.author : 'the author') + ' can edit this note');
+      }
       event.preventDefault();
     }
   });
