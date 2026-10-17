@@ -265,20 +265,38 @@
       }
 
       setLoading(btn, true, 'Signing in…');
-      supabase.auth.signInWithPassword({ email: email, password: password })
-        .then(function (res) {
-          setLoading(btn, false);
-          if (res.error) { toast(res.error.message, 'error'); return; }
-          if (res.data && res.data.session) {
-            localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
+
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.error) {
+          if (supabase) {
+            return supabase.auth.signInWithPassword({ email: email, password: password })
+              .then(function (sbRes) {
+                if (sbRes.error) throw sbRes.error;
+                return sbRes.data;
+              });
           }
-          toast('Signed in!', 'success', 2000);
-          setTimeout(redirectAfterAuth, 600);
-        })
-        .catch(function (err) {
-          setLoading(btn, false);
-          toast(err.message || 'Login failed', 'error');
-        });
+          throw new Error(res.error);
+        }
+        return res;
+      })
+      .then(function (data) {
+        setLoading(btn, false);
+        if (data && data.session) {
+          localStorage.setItem('supabase_session', JSON.stringify(data.session));
+        }
+        toast('Signed in!', 'success', 2000);
+        setTimeout(redirectAfterAuth, 500);
+      })
+      .catch(function (err) {
+        setLoading(btn, false);
+        toast(err.message || 'Login failed', 'error');
+      });
     });
   }
 

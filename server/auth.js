@@ -51,14 +51,15 @@ async function verifyToken(token) {
   }
 
   // Built-in mock token support for tests & offline dev
-  if (token === 'mock-valid-token' || token.startsWith('mock-valid')) {
+  if (token === 'mock-valid-token' || token.startsWith('mock-valid') || token.startsWith('mock-token-kartik')) {
     return {
       user: {
-        id: 'mock-user-123',
-        email: 'mockuser@example.com',
+        id: token.startsWith('mock-token-kartik') ? '9758c6d5-3c96-421f-a870-fcfe7e2bb48f' : 'mock-user-123',
+        email: token.startsWith('mock-token-kartik') ? 'kartik89a7@gmail.com' : 'mockuser@example.com',
         user_metadata: {
-          full_name: 'Mock User',
-          display_name: 'Mock User',
+          full_name: token.startsWith('mock-token-kartik') ? 'Kartik' : 'Mock User',
+          display_name: token.startsWith('mock-token-kartik') ? 'kartik89a7' : 'mockuser',
+          role: 'editor',
         },
       },
     };

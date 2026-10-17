@@ -24,7 +24,7 @@
   <a href="/" id="back">← Back to NexusMeet</a>
   <script src="/multiplayer.js"></script>
   <script>
-    const room = Multiplayer.join({ name: prompt('Your name?') || 'Guest' });
+    const room = Multiplayer.join({ name: 'Guest ' + Math.floor(100 + Math.random() * 900) });
     room.onStatusChange(s => { document.getElementById('status').textContent = s.status === 'connected' ? '🟢 Live — share this URL to collaborate' : s.status; });
     room.onStateChange(state => {
       document.getElementById('btn').textContent = `Clicked ${state.clicks || 0} times`;
