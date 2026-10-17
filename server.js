@@ -19,6 +19,7 @@ const bcrypt = require('bcryptjs');
 
 const { LIMITS, ROOM_ID_RE, CLIENT_ID_RE } = require('./server/limits');
 const serverAuth = require('./server/auth');
+const persist = require('./server/persist');
 const {
   sanitizeName,
   colorFor,
@@ -64,6 +65,8 @@ function createServer(options = {}) {
       hasAuth: !!process.env.SUPABASE_URL,
       hasAI: !!process.env.ANTHROPIC_API_KEY,
       allowGuests: process.env.ALLOW_GUESTS !== 'false',
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
     });
   });
 
@@ -153,6 +156,7 @@ function createServer(options = {}) {
       broadcast(room, { type: 'rtc_peer_left', peerId: clientId });
     }
     if (room.clients.size === 0) {
+      persist.saveSnapshot(roomId, room.state, room.version);
       if (roomTtlMs <= 0) rooms.delete(roomId);
       else {
         room.cleanupTimer = setTimeout(() => {
@@ -500,6 +504,7 @@ function createServer(options = {}) {
     if (!room.chatHistory) room.chatHistory = [];
     room.chatHistory.push(chatMsg);
     if (room.chatHistory.length > 100) room.chatHistory.shift();
+    persist.saveChatMessage(room.id, ws.meta.user?.id, ws.meta.name, body);
     broadcast(room, chatMsg);
   }
 

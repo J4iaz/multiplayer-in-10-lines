@@ -407,6 +407,10 @@
         // If in dev mode, enable buttons so users can test or allow guest continue
         if (loginGuestBtn) loginGuestBtn.style.display = '';
       } else {
+        if (data.supabaseUrl && data.supabaseAnonKey) {
+          window._SUPABASE_URL = data.supabaseUrl;
+          window._SUPABASE_ANON_KEY = data.supabaseAnonKey;
+        }
         initSupabase();
         if (supabase) {
           supabase.auth.getSession().then(function (res) {
