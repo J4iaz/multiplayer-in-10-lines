@@ -215,22 +215,46 @@
     list.slice(0, MAX_AVATARS).forEach(function (u) {
       var li = document.createElement('li');
       li.style.background = u.color;
-      li.title = u.id === me.id ? u.name + ' (you)' : u.name;
+      var displayName = u.id === me.id ? u.name + ' (you)' : u.name;
+      li.title = displayName;
       if (u.id === me.id) li.className = 'is-me';
+
       var abbr = document.createElement('span');
       abbr.setAttribute('aria-hidden', 'true');
+      abbr.className = 'avatar-abbr';
       abbr.textContent = initials(u.name);
+
+      // Custom animated popup tooltip on hover
+      var tip = document.createElement('span');
+      tip.className = 'avatar-tooltip';
+      tip.setAttribute('role', 'tooltip');
+      tip.textContent = displayName;
+
       var full = document.createElement('span');
       full.className = 'visually-hidden';
-      full.textContent = li.title;
+      full.textContent = displayName;
+
       li.appendChild(abbr);
+      li.appendChild(tip);
       li.appendChild(full);
       presenceEl.appendChild(li);
     });
     if (list.length > MAX_AVATARS) {
       var more = document.createElement('li');
       more.className = 'more';
-      more.textContent = '+' + (list.length - MAX_AVATARS);
+      var moreCount = list.length - MAX_AVATARS;
+      var moreSpan = document.createElement('span');
+      moreSpan.setAttribute('aria-hidden', 'true');
+      moreSpan.className = 'avatar-abbr';
+      moreSpan.textContent = '+' + moreCount;
+
+      var moreTip = document.createElement('span');
+      moreTip.className = 'avatar-tooltip';
+      moreTip.setAttribute('role', 'tooltip');
+      moreTip.textContent = '+' + moreCount + ' more in this room';
+
+      more.appendChild(moreSpan);
+      more.appendChild(moreTip);
       presenceEl.appendChild(more);
     }
     presenceEl.setAttribute('aria-label', list.length + (list.length === 1 ? ' person' : ' people') + ' in this room');
