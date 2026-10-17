@@ -277,18 +277,7 @@
   initAllModules();
   // -----------------------------------------------------
 
-  function saveRoomToHistory(id) {
-    if (!id) return;
-    try {
-      var list = JSON.parse(localStorage.getItem('sticky_my_rooms') || '[]');
-      var idx = list.findIndex(function (r) { return r.id === id; });
-      var item = { id: id, name: 'Room #' + id, lastVisited: Date.now() };
-      if (idx !== -1) list.splice(idx, 1);
-      list.unshift(item);
-      localStorage.setItem('sticky_my_rooms', JSON.stringify(list.slice(0, 24)));
-    } catch (e) {}
-  }
-  saveRoomToHistory(room.id);
+
 
   var latest = room.getState();
   var noteEls = new Map(); // id -> { el, text, author }

@@ -237,14 +237,32 @@
 
   // ── Login ──
   var loginBtn = document.getElementById('loginBtn');
+  var loginEmailInput = document.getElementById('login-email');
+  var loginPwInput = document.getElementById('login-password');
+
+  if (loginEmailInput) {
+    loginEmailInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && loginBtn) loginBtn.click();
+    });
+  }
+  if (loginPwInput) {
+    loginPwInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && loginBtn) loginBtn.click();
+    });
+  }
+
   if (loginBtn) {
     loginBtn.addEventListener('click', function () {
-      var email = document.getElementById('login-email').value.trim();
+      var email = (document.getElementById('login-email').value || '').trim();
       var password = document.getElementById('login-password').value;
       var btn = this;
 
-      if (!email || !password) { toast('Please enter email and password.', 'error'); return; }
+      if (!email || !password) { toast('Please enter email/username and password.', 'error'); return; }
       if (!supabase) { toast('Supabase not configured — auth is disabled in dev mode.', 'error'); return; }
+
+      if (email.indexOf('@') === -1) {
+        email = email + '@gmail.com';
+      }
 
       setLoading(btn, true, 'Signing in…');
       supabase.auth.signInWithPassword({ email: email, password: password })

@@ -52,40 +52,10 @@
     return null;
   }
 
-  function saveRoom(id, name) {
-    if (!id) return;
-    try {
-      var list = JSON.parse(localStorage.getItem('sticky_my_rooms') || '[]');
-      var idx = list.findIndex(function (r) { return r.id === id; });
-      var item = {
-        id: id,
-        name: name || ('Room #' + id),
-        lastVisited: Date.now()
-      };
-      if (idx !== -1) list.splice(idx, 1);
-      list.unshift(item);
-      localStorage.setItem('sticky_my_rooms', JSON.stringify(list.slice(0, 24)));
-    } catch (e) {}
-  }
-
-  function getRooms() {
-    try {
-      return JSON.parse(localStorage.getItem('sticky_my_rooms') || '[]');
-    } catch (e) {
-      return [];
-    }
-  }
-
-  function timeAgo(ms) {
-    var diff = Date.now() - ms;
-    var mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
-    if (mins < 60) return mins + 'm ago';
-    var hrs = Math.floor(mins / 60);
-    if (hrs < 24) return hrs + 'h ago';
-    var days = Math.floor(hrs / 24);
-    return days + 'd ago';
-  }
+  try {
+    localStorage.removeItem('sticky_my_rooms');
+  } catch (e) {}
+  function saveRoom() {}
 
   // --- Auth UI initialization ---
   var session = getStoredSession();
@@ -361,74 +331,9 @@
     }
   });
 
-  // --- Render "My Rooms" Dashboard ---
-  function renderMyRooms() {
-    var container = document.getElementById('myRoomsContainer');
-    if (!container) return;
-    var rooms = getRooms();
-
-    if (rooms.length === 0) {
-      container.innerHTML = [
-        '<div class="rooms-empty-state">',
-        '  <svg class="rooms-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">',
-        '    <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/><path d="m14 9 3 3-3 3"/>',
-        '  </svg>',
-        '  <p style="font-size:15px; font-weight:600; color:#fff; margin-bottom:6px;">No rooms visited yet</p>',
-        '  <p style="font-size:13px; color:var(--text-muted); margin-bottom:18px;">Create your first room or join one with a team code.</p>',
-        '  <button class="btn-hero-primary action-create-room" type="button" style="padding:10px 22px; font-size:13.5px; margin:0 auto;">+ Create New Room</button>',
-        '</div>'
-      ].join('\n');
-      var newBtn = container.querySelector('.action-create-room');
-      if (newBtn) newBtn.addEventListener('click', createAndOpenRoom);
-      return;
-    }
-
-    var html = '<div class="rooms-grid">';
-    rooms.forEach(function (r) {
-      var timeStr = r.lastVisited ? timeAgo(r.lastVisited) : 'Recent';
-      html += [
-        '<div class="room-item-card" data-room-id="' + r.id + '">',
-        '  <div class="room-item-header">',
-        '    <span class="room-item-title">' + (r.name || 'Room #' + r.id) + '</span>',
-        '    <span class="room-item-code">#' + r.id + '</span>',
-        '  </div>',
-        '  <div class="room-item-time">Active: ' + timeStr + '</div>',
-        '  <div class="room-item-actions">',
-        '    <a class="btn-open-room" href="/app.html#room=' + encodeURIComponent(r.id) + '">Open Board →</a>',
-        '    <button class="btn-room-icon btn-copy-room" title="Copy room link" type="button" data-room="' + r.id + '">',
-        '      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>',
-        '    </button>',
-        '    <button class="btn-room-icon btn-remove-room" title="Remove from list" type="button" data-room="' + r.id + '">',
-        '      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
-        '    </button>',
-        '  </div>',
-        '</div>'
-      ].join('\n');
-    });
-    html += '</div>';
-    container.innerHTML = html;
-
-    // Attach room card action listeners
-    container.querySelectorAll('.btn-copy-room').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var roomId = btn.dataset.room;
-        var url = window.location.origin + '/app.html#room=' + roomId;
-        navigator.clipboard.writeText(url).then(function () {
-          btn.style.color = '#4ade80';
-          setTimeout(function () { btn.style.color = ''; }, 1500);
-        });
-      });
-    });
-
-    container.querySelectorAll('.btn-remove-room').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var roomId = btn.dataset.room;
-        var list = getRooms().filter(function (r) { return r.id !== roomId; });
-        localStorage.setItem('sticky_my_rooms', JSON.stringify(list));
-        renderMyRooms();
-      });
-    });
-  }
+  try {
+    localStorage.removeItem('sticky_my_rooms');
+  } catch (e) {}
 
   // --- Interactive 10-Line Live Snippet Showcase ---
   function initShowcaseDemo() {
@@ -498,6 +403,5 @@
 
   // Run on page ready
   renderAuthUI();
-  renderMyRooms();
   initShowcaseDemo();
 })();
