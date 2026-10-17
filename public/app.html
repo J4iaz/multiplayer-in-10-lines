@@ -125,6 +125,31 @@
               <span>Note</span>
             </button>
 
+            <!-- Whiteboard Tools Toggle -->
+            <button id="btn-toggle-wb" class="btn-glass" type="button" title="Whiteboard Drawing Tools">
+              <span style="font-size:13px;">🎨</span>
+              <span>Draw</span>
+            </button>
+
+            <!-- Video Call Toggle -->
+            <button id="btn-toggle-call-top" class="btn-glass" type="button" title="Start / Join Video Call">
+              <span style="font-size:13px;">📞</span>
+              <span>Call</span>
+            </button>
+
+            <!-- Live Chat Toggle -->
+            <button id="btn-toggle-chat" class="btn-glass" type="button" title="Open Live Chat">
+              <span style="font-size:13px;">💬</span>
+              <span>Chat</span>
+              <span id="chat-unread-badge" class="badge-count" style="display:none">0</span>
+            </button>
+
+            <!-- Avatar Customizer Toggle -->
+            <button id="btn-toggle-avatar" class="btn-glass" type="button" title="Customize Your Avatar">
+              <span style="font-size:13px;">😊</span>
+              <span>Avatar</span>
+            </button>
+
             <!-- Icon: Refresh / New Room -->
             <button id="new-room" class="btn-glass btn-icon-glass" type="button" aria-label="Create a new room" title="Create New Room">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -403,6 +428,86 @@
           <button id="password-submit-btn" class="btn-glass btn-primary-glass" type="button">
             <span>Unlock Room</span>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mandatory Entry Gate Modal (shown if user has not yet signed in or chosen a guest name) -->
+    <div id="gate-modal" class="modal-backdrop" aria-hidden="true" style="display:none; z-index:9999;">
+      <div class="modal-card" role="dialog" aria-modal="true" style="max-width: 440px;">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge" style="background:rgba(150,215,255,0.15); border-color:rgba(150,215,255,0.4);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#96d7ff" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            </div>
+            <div>
+              <h3 class="modal-title">Welcome to NexusMeet</h3>
+              <p class="modal-desc">Sign in or enter a name to join this room</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-body" style="padding:14px 0;">
+          <a id="gate-auth-link" href="/auth.html" class="btn-hero-primary" style="display:flex; justify-content:center; text-decoration:none; padding:12px; margin-bottom:14px; border-radius:12px; font-weight:600;">
+            <span>Sign In / Create Account →</span>
+          </a>
+
+          <div style="display:flex; align-items:center; gap:12px; margin: 12px 0;">
+            <div style="flex:1; height:1px; background:rgba(255,255,255,0.1);"></div>
+            <span style="font-size:12px; color:#8898bb; text-transform:uppercase; letter-spacing:0.5px;">Or Continue as Guest</span>
+            <div style="flex:1; height:1px; background:rgba(255,255,255,0.1);"></div>
+          </div>
+
+          <form id="gate-guest-form" onsubmit="return false;" style="display:flex; flex-direction:column; gap:10px;">
+            <label class="modal-field-label" for="gate-name-input">Your Display Name</label>
+            <input id="gate-name-input" class="modal-input" type="text" placeholder="e.g. Alex" maxlength="50" autocomplete="nickname" required />
+            <button id="gate-enter-btn" class="btn-glass btn-primary-glass" type="button" style="justify-content:center; padding:11px;">
+              <span>Enter NexusMeet Room →</span>
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Chat Drawer -->
+    <aside id="chat-drawer" class="chat-drawer glass-panel" aria-label="Live Chat" hidden>
+      <div class="chat-drawer-header">
+        <div class="chat-drawer-title">
+          <span>💬</span>
+          <span>Live Chat</span>
+        </div>
+        <button id="chat-close-btn" class="chat-drawer-close" type="button" aria-label="Close Chat">✕</button>
+      </div>
+      <div id="chat-messages" class="chat-messages-wrap"></div>
+      <div id="chat-typing-indicator" class="chat-typing-indicator" style="display:none"></div>
+      <form id="chat-form" class="chat-input-bar" onsubmit="return false;">
+        <input id="chat-input" class="chat-input-field" type="text" placeholder="Type a message… (Enter to send)" maxlength="2000" autocomplete="off" />
+        <button id="chat-send-btn" class="chat-send-submit" type="button">Send</button>
+      </form>
+    </aside>
+
+    <!-- Avatar Customizer Modal -->
+    <div id="avatar-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="avatar-modal-title" style="max-width:440px;">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">😊</div>
+            <div>
+              <h3 id="avatar-modal-title" class="modal-title">Customize Avatar</h3>
+              <p class="modal-desc">Create your custom layered SVG avatar</p>
+            </div>
+          </div>
+          <button id="avatar-modal-close" class="modal-close-btn" type="button" aria-label="Close">✕</button>
+        </div>
+        <div class="modal-body avatar-modal-body">
+          <div class="avatar-preview-section" style="text-align:center; margin-bottom:14px;">
+            <div id="avatar-preview-wrap" class="avatar-preview-box" style="width:96px; height:96px; margin:0 auto 10px;"></div>
+            <button id="avatar-random-btn" class="btn-glass" type="button">🎲 Randomize</button>
+          </div>
+          <div id="avatar-controls-body" class="avatar-controls-scroll" style="max-height:280px; overflow-y:auto;"></div>
+        </div>
+        <div class="modal-footer">
+          <button id="avatar-save-btn" class="btn-glass btn-primary-glass" type="button">Save Avatar</button>
         </div>
       </div>
     </div>

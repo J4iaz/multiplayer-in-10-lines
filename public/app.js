@@ -75,6 +75,96 @@
   // ---- Multiplayer: this is the whole integration ----
   var room = Multiplayer.join(joinOptions);
 
+  var whiteboardInstance = null;
+  var chatInstance = null;
+  var reactionsInstance = null;
+  var avatarInstance = null;
+  var videoInstance = null;
+
+  function initAllModules() {
+    try {
+      if (window.Whiteboard && !whiteboardInstance) {
+        whiteboardInstance = window.Whiteboard.init({
+          room: room,
+          boardWrap: boardWrap,
+          board: board,
+          onAddNote: function (x, y) {
+            addNote(x, y);
+          },
+          onToast: toast,
+        });
+      }
+      if (window.ChatModule && !chatInstance) {
+        chatInstance = window.ChatModule.init(room, {
+          drawerId: 'chat-drawer',
+          toggleBtnId: 'btn-toggle-chat',
+          unreadBadgeId: 'chat-unread-badge',
+          messagesListId: 'chat-messages',
+          inputId: 'chat-input',
+          sendBtnId: 'chat-send-btn',
+          closeBtnId: 'chat-close-btn',
+          typingIndicatorId: 'chat-typing-indicator',
+        });
+      }
+      if (window.ReactionsModule && !reactionsInstance) {
+        reactionsInstance = window.ReactionsModule.init(room, {
+          barId: 'reactions-bar',
+        });
+      }
+      if (window.AvatarModule && !avatarInstance) {
+        avatarInstance = window.AvatarModule.init(room, {
+          modalId: 'avatar-modal',
+          openBtnId: 'btn-toggle-avatar',
+          closeBtnId: 'avatar-modal-close',
+          saveBtnId: 'avatar-save-btn',
+          randomBtnId: 'avatar-random-btn',
+          previewWrapId: 'avatar-preview-wrap',
+          controlsBodyId: 'avatar-controls-body',
+        });
+      }
+      if (window.NexusMeetVideo && !videoInstance) {
+        videoInstance = window.NexusMeetVideo.initVideo(room, {
+          containerId: 'video-dock',
+        });
+      }
+
+      var btnChat = $('btn-toggle-chat');
+      if (btnChat && chatInstance) {
+        btnChat.onclick = function () {
+          chatInstance.toggle();
+        };
+      }
+
+      var btnAvatar = $('btn-toggle-avatar');
+      if (btnAvatar && avatarInstance) {
+        btnAvatar.onclick = function () {
+          avatarInstance.open();
+        };
+      }
+
+      var btnCallTop = $('btn-toggle-call-top');
+      if (btnCallTop && videoInstance) {
+        btnCallTop.onclick = function () {
+          if (videoInstance.inCall()) {
+            videoInstance.endCall();
+          } else {
+            videoInstance.startCall();
+          }
+        };
+      }
+
+      var btnWb = $('btn-toggle-wb');
+      if (btnWb && whiteboardInstance) {
+        btnWb.onclick = function () {
+          whiteboardInstance.setTool(whiteboardInstance.tool === 'select' ? 'pencil' : 'select');
+          toast(whiteboardInstance.tool === 'pencil' ? '✏️ Draw Mode Active' : '👆 Select Mode Active');
+        };
+      }
+    } catch (modErr) {
+      console.warn('Module init error:', modErr);
+    }
+  }
+
   function setupRoomListeners() {
     room.enableCursors({ container: board });
     room.onStateChange(function (state) {
@@ -89,6 +179,7 @@
     room.onStatusChange(function (info) {
       renderStatus(info);
       if (info.status === 'connected') {
+        initAllModules();
         var pwdModal = $('password-modal');
         if (pwdModal) {
           pwdModal.hidden = true;
@@ -1343,6 +1434,57 @@
     }
     if (newRoom && newRoom !== room.id) location.reload();
   });
+
+  // --- Mandatory Entry Gate Modal (Sign In / Guest Prompt) ---
+  var gateModal = $('gate-modal');
+  var gateGuestForm = $('gate-guest-form');
+  var gateNameInput = $('gate-name-input');
+  var gateEnterBtn = $('gate-enter-btn');
+  var gateAuthLink = $('gate-auth-link');
+  var currentRoomCode = (location.hash.match(/room=([A-Za-z0-9-]+)/) || [])[1] || room.id;
+
+  if (gateAuthLink) {
+    gateAuthLink.href = '/auth.html#room=' + encodeURIComponent(currentRoomCode);
+  }
+
+  function checkGateModal() {
+    var storedGuest = localStorage.getItem('nexusmeet_guest_name');
+    if (!session && !storedGuest) {
+      if (gateModal) {
+        gateModal.style.display = 'flex';
+        gateModal.removeAttribute('hidden');
+        gateModal.classList.add('is-open');
+        if (boardWrap) boardWrap.classList.add('blurred');
+        if (gateNameInput) setTimeout(function () { gateNameInput.focus(); }, 100);
+      }
+    }
+  }
+
+  function handleGateEnter() {
+    if (!gateNameInput) return;
+    var name = String(gateNameInput.value || '').trim();
+    if (!name) {
+      gateNameInput.focus();
+      return;
+    }
+    localStorage.setItem('nexusmeet_guest_name', name);
+    if (room && room.setName) room.setName(name);
+    if (nameInput) nameInput.value = name;
+    if (gateModal) {
+      gateModal.style.display = 'none';
+      gateModal.classList.remove('is-open');
+    }
+    if (boardWrap) boardWrap.classList.remove('blurred');
+    toast('Joined room as ' + name);
+  }
+
+  if (gateEnterBtn) gateEnterBtn.addEventListener('click', handleGateEnter);
+  if (gateGuestForm) gateGuestForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    handleGateEnter();
+  });
+
+  checkGateModal();
 
   updateAuthUI();
   renderStatus({ status: room.status, pending: 0 });

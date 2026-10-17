@@ -2703,3 +2703,477 @@ body {
 .presence {
   cursor: pointer;
 }
+
+
+/* ----------------------------------------------------------------
+   16. GATE MODAL & BLURRED STATE
+   ---------------------------------------------------------------- */
+.board-wrap.blurred {
+  filter: blur(14px) brightness(0.65);
+  pointer-events: none;
+  transition: filter 0.35s ease;
+}
+
+/* ----------------------------------------------------------------
+   17. LIVE CHAT DRAWER
+   ---------------------------------------------------------------- */
+.chat-drawer {
+  position: fixed;
+  top: 76px;
+  right: 20px;
+  bottom: 24px;
+  width: 340px;
+  max-width: calc(100vw - 40px);
+  background: rgba(6, 8, 30, 0.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(150, 215, 255, 0.25);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  z-index: 1800;
+  transform: translateX(110%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chat-drawer.open,
+.chat-drawer:not([hidden]) {
+  transform: translateX(0);
+}
+
+.chat-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-drawer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: #fff;
+}
+
+.chat-drawer-close {
+  background: none;
+  border: none;
+  color: #8898bb;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.chat-drawer-close:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.chat-messages-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-msg {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: rgba(150, 215, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: #96d7ff;
+}
+
+.chat-msg-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-msg-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.chat-msg-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: #96d7ff;
+}
+
+.chat-msg-time {
+  font-size: 10px;
+  color: #4f617e;
+}
+
+.chat-msg-body {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 7px 11px;
+  border-radius: 4px 12px 12px 12px;
+  color: #f0f4ff;
+  word-break: break-word;
+}
+
+.chat-msg-mine .chat-msg-body {
+  background: rgba(150, 215, 255, 0.12);
+  border-color: rgba(150, 215, 255, 0.25);
+  color: #fff;
+  border-radius: 12px 4px 12px 12px;
+}
+
+.chat-input-bar {
+  display: flex;
+  padding: 12px;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chat-input-field {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+.chat-input-field:focus {
+  border-color: rgba(150, 215, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(150, 215, 255, 0.2);
+}
+
+.chat-send-submit {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(150, 215, 255, 0.18);
+  border: 1px solid rgba(150, 215, 255, 0.35);
+  color: #96d7ff;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.chat-send-submit:hover {
+  background: rgba(150, 215, 255, 0.3);
+}
+
+/* ----------------------------------------------------------------
+   18. FLOATING REACTIONS & BAR
+   ---------------------------------------------------------------- */
+.reactions-bar-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reactions-bar-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: rgba(6, 8, 30, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(150, 215, 255, 0.25);
+  border-radius: 9999px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.reaction-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.reaction-btn:hover {
+  transform: scale(1.25);
+  background: rgba(150, 215, 255, 0.14);
+}
+
+.reaction-btn-shortcut {
+  font-size: 9px;
+  color: #8898bb;
+  font-family: monospace;
+}
+
+.floating-reaction {
+  position: fixed;
+  bottom: 80px;
+  right: 48px;
+  pointer-events: none;
+  z-index: 2500;
+  font-size: 32px;
+  animation: floatReaction 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+}
+
+@keyframes floatReaction {
+  0% { opacity: 0; transform: translate3d(0, 0, 0) scale(0.6); }
+  15% { opacity: 1; transform: translate3d(var(--x-start, 0px), -40px, 0) scale(var(--scale, 1.2)) rotate(var(--rot, 0deg)); }
+  60% { opacity: 0.9; transform: translate3d(var(--x-mid, 10px), -180px, 0) scale(var(--scale, 1.1)) rotate(calc(var(--rot, 0deg) * -1)); }
+  100% { opacity: 0; transform: translate3d(var(--x-end, -10px), -320px, 0) scale(0.8); }
+}
+
+/* ----------------------------------------------------------------
+   19. VIDEO DOCK & WEBRTC CALL TILES
+   ---------------------------------------------------------------- */
+.video-dock-container {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1500;
+}
+
+.video-dock-shell {
+  background: rgba(6, 8, 30, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(150, 215, 255, 0.25);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  max-width: 380px;
+  display: none;
+}
+
+.video-dock-container.active .video-dock-shell {
+  display: block;
+}
+
+.video-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.video-dock-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.video-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: dot-pulse 1.8s infinite;
+}
+
+.dock-btn-icon {
+  background: none;
+  border: none;
+  color: #8898bb;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.video-tile {
+  position: relative;
+  width: 100%;
+  height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #080d24;
+  border: 1.5px solid rgba(150, 215, 255, 0.2);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.video-tile.speaking {
+  border-color: #96d7ff !important;
+  box-shadow: 0 0 16px rgba(150, 215, 255, 0.6);
+}
+
+.video-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: #fff;
+}
+
+.video-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.vbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 8px;
+  background: rgba(150, 215, 255, 0.15);
+  border: 1px solid rgba(150, 215, 255, 0.3);
+  color: #96d7ff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vbtn:hover:not(:disabled) {
+  background: rgba(150, 215, 255, 0.25);
+}
+
+.vbtn.disabled,
+.vbtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vbtn.vbtn-danger {
+  background: rgba(240, 76, 76, 0.2);
+  border-color: rgba(240, 76, 76, 0.45);
+  color: #fca5a5;
+}
+
+.vbtn-icon-only {
+  padding: 6px 9px;
+  font-size: 14px;
+}
+
+.vbtn.muted {
+  background: rgba(240, 76, 76, 0.2);
+  border-color: rgba(240, 76, 76, 0.4);
+}
+
+/* ----------------------------------------------------------------
+   20. AVATAR MODAL STYLES
+   ---------------------------------------------------------------- */
+.avatar-modal-body {
+  padding: 12px 0;
+}
+
+.avatar-field-group {
+  margin-bottom: 12px;
+}
+
+.avatar-field-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #8898bb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.avatar-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.avatar-swatch:hover,
+.avatar-swatch.active {
+  border-color: #96d7ff;
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(150, 215, 255, 0.5);
+}
+
+.avatar-pill-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.avatar-pill-btn {
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  color: #f0f4ff;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.avatar-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.avatar-pill-btn.active {
+  background: rgba(150, 215, 255, 0.22);
+  border-color: #96d7ff;
+  color: #96d7ff;
+}

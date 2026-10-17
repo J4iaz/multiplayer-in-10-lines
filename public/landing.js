@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  // If a room parameter/hash is present, automatically route to app board
+  // If a room parameter/hash is present, remember it
   var rawHash = (window.location.hash || '').replace(/^#/, '');
   var search = window.location.search || '';
   var hp = new URLSearchParams(rawHash);
@@ -12,8 +12,7 @@
     intendedRoom = rawHash;
   }
   if (intendedRoom) {
-    window.location.replace('/app.html#room=' + encodeURIComponent(intendedRoom));
-    return;
+    sessionStorage.setItem('intended_room', intendedRoom);
   }
 
   var ID_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
@@ -144,7 +143,14 @@
 
   // --- Create Room Handlers ---
   function createAndOpenRoom() {
+    var s = getStoredSession();
+    var guestName = localStorage.getItem('nexusmeet_guest_name');
     var id = randomRoomId(8);
+    if (!s && !guestName) {
+      sessionStorage.setItem('intended_room', id);
+      openAuthModal();
+      return;
+    }
     saveRoom(id);
     window.location.href = '/app.html#room=' + id;
   }
@@ -204,6 +210,14 @@
       joinCodeInput.focus();
       return;
     }
+    var s = getStoredSession();
+    var guestName = localStorage.getItem('nexusmeet_guest_name');
+    if (!s && !guestName) {
+      sessionStorage.setItem('intended_room', code);
+      closeJoinModal();
+      openAuthModal();
+      return;
+    }
     saveRoom(code);
     closeJoinModal();
     window.location.href = '/app.html#room=' + encodeURIComponent(code);
@@ -228,12 +242,18 @@
   var authModal = document.getElementById('auth-modal');
   var authModalClose = document.getElementById('auth-modal-close');
   var authGoFullBtn = document.getElementById('authGoFullBtn');
+  var landingGuestBtn = document.getElementById('landing-guest-btn');
+  var landingGuestForm = document.getElementById('landing-guest-form');
+  var landingGuestName = document.getElementById('landing-guest-name');
 
   function openAuthModal() {
     if (authModal) {
       authModal.removeAttribute('hidden');
       authModal.hidden = false;
       authModal.classList.add('is-open');
+      if (landingGuestName) {
+        setTimeout(function () { landingGuestName.focus(); }, 80);
+      }
     } else {
       window.location.href = '/auth.html';
     }
@@ -245,6 +265,26 @@
     authModal.setAttribute('hidden', '');
     authModal.hidden = true;
   }
+
+  function handleGuestEntry() {
+    if (!landingGuestName) return;
+    var name = String(landingGuestName.value || '').trim();
+    if (!name) {
+      landingGuestName.focus();
+      return;
+    }
+    localStorage.setItem('nexusmeet_guest_name', name);
+    var targetRoom = sessionStorage.getItem('intended_room') || randomRoomId(8);
+    saveRoom(targetRoom);
+    closeAuthModal();
+    window.location.href = '/app.html#room=' + encodeURIComponent(targetRoom);
+  }
+
+  if (landingGuestBtn) landingGuestBtn.addEventListener('click', handleGuestEntry);
+  if (landingGuestForm) landingGuestForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    handleGuestEntry();
+  });
 
   if (authNavBtn) authNavBtn.addEventListener('click', openAuthModal);
   if (authModalClose) authModalClose.addEventListener('click', closeAuthModal);
