@@ -238,6 +238,68 @@
     });
   }
 
+  // --- Google Meet Style Hero Join Input ---
+  var heroJoinInput = document.getElementById('hero-join-input');
+  var heroJoinBtn = document.getElementById('hero-join-btn');
+  var heroJoinForm = document.getElementById('hero-join-form');
+
+  function handleHeroJoin() {
+    if (!heroJoinInput) return;
+    var raw = String(heroJoinInput.value || '').trim();
+    if (!raw) {
+      heroJoinInput.focus();
+      return;
+    }
+    var code = raw;
+    if (raw.indexOf('#') !== -1) {
+      var after = raw.split('#')[1];
+      var p = new URLSearchParams(after);
+      code = p.get('room') || after;
+    } else if (raw.indexOf('?') !== -1) {
+      var sp = new URLSearchParams(raw.split('?')[1]);
+      code = sp.get('room') || raw;
+    }
+    code = code.replace(/^[#?]/, '').replace(/^room=/, '').trim();
+    if (!/^[A-Za-z0-9-]{1,64}$/.test(code)) {
+      alert('Room code must contain only letters, numbers, or hyphens.');
+      heroJoinInput.focus();
+      return;
+    }
+    var s = getStoredSession();
+    var guestName = localStorage.getItem('nexusmeet_guest_name');
+    if (!s && !guestName) {
+      sessionStorage.setItem('intended_room', code);
+      openAuthModal();
+      return;
+    }
+    saveRoom(code);
+    window.location.href = '/app.html#room=' + encodeURIComponent(code);
+  }
+
+  if (heroJoinInput && heroJoinBtn) {
+    heroJoinInput.addEventListener('input', function () {
+      var val = heroJoinInput.value.trim();
+      if (val.length > 0) {
+        heroJoinBtn.disabled = false;
+        heroJoinBtn.style.opacity = '1';
+        heroJoinBtn.style.pointerEvents = 'auto';
+        heroJoinBtn.classList.add('btn-primary-glass');
+      } else {
+        heroJoinBtn.disabled = true;
+        heroJoinBtn.style.opacity = '0.6';
+        heroJoinBtn.style.pointerEvents = 'none';
+        heroJoinBtn.classList.remove('btn-primary-glass');
+      }
+    });
+    heroJoinBtn.addEventListener('click', handleHeroJoin);
+  }
+  if (heroJoinForm) {
+    heroJoinForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      handleHeroJoin();
+    });
+  }
+
   // --- Auth Modal ---
   var authModal = document.getElementById('auth-modal');
   var authModalClose = document.getElementById('auth-modal-close');

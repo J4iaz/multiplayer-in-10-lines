@@ -1103,6 +1103,25 @@
     });
   }
 
+  var inviteShareWa = $('invite-share-wa');
+  if (inviteShareWa) {
+    inviteShareWa.addEventListener('click', function () {
+      var url = inviteLinkInput && inviteLinkInput.value ? inviteLinkInput.value : room.shareUrl();
+      var text = encodeURIComponent('Join me on NexusMeet: ' + url);
+      window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+    });
+  }
+
+  var inviteShareEmail = $('invite-share-email');
+  if (inviteShareEmail) {
+    inviteShareEmail.addEventListener('click', function () {
+      var url = inviteLinkInput && inviteLinkInput.value ? inviteLinkInput.value : room.shareUrl();
+      var subject = encodeURIComponent('Join NexusMeet Collaborative Room');
+      var body = encodeURIComponent('Here is the link to collaborate with me in realtime on NexusMeet:\n\n' + url);
+      window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+    });
+  }
+
   // Join Modal & Room Switcher
   var joinModal = $('join-modal');
   var joinCodeInput = $('join-code-input');

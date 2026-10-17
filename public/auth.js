@@ -386,8 +386,12 @@
     supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin + '/auth.html' }
+    }).then(function (res) {
+      if (res && res.error) {
+        toast('Google login requires Google Cloud setup in Supabase. Please use Email/Password or Guest mode!', 'error', 6000);
+      }
     }).catch(function (err) {
-      toast(err.message || 'Google sign-in failed', 'error');
+      toast('Google login requires Google Cloud setup in Supabase. Please use Email/Password or Guest mode!', 'error', 6000);
     });
   }
 
