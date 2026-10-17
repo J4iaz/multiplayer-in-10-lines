@@ -65,6 +65,11 @@ async function loadSnapshot(roomId) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function toUuid(id) {
+  return typeof id === 'string' && UUID_RE.test(id) ? id : null;
+}
+
 async function saveChatMessage(roomId, userId, displayName, body) {
   const supabase = serverAuth.getClient();
   if (!supabase || !roomId || !body) return false;
@@ -72,7 +77,7 @@ async function saveChatMessage(roomId, userId, displayName, body) {
   try {
     const { error } = await supabase.from('chat_messages').insert({
       room_id: roomId,
-      user_id: userId || null,
+      user_id: toUuid(userId),
       display_name: displayName || 'Guest',
       body: String(body).slice(0, 2000),
       created_at: new Date().toISOString(),
@@ -117,7 +122,7 @@ async function saveRoomEvent(roomId, version, userId, type, payload = {}) {
     const { error } = await supabase.from('room_events').insert({
       room_id: roomId,
       version: version || 0,
-      user_id: userId || null,
+      user_id: toUuid(userId),
       type: type || 'state_update',
       payload: payload || {},
       created_at: new Date().toISOString(),
@@ -141,7 +146,7 @@ async function upsertRoom(roomId, ownerId = null, name = null) {
   try {
     const { error } = await supabase.from('rooms').upsert({
       id: roomId,
-      owner_id: ownerId || null,
+      owner_id: toUuid(ownerId),
       name: name || ('Room #' + roomId),
       last_active_at: new Date().toISOString(),
     }, { onConflict: 'id' });
