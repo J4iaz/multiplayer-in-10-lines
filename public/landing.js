@@ -143,14 +143,7 @@
 
   // --- Create Room Handlers ---
   function createAndOpenRoom() {
-    var s = getStoredSession();
-    var guestName = localStorage.getItem('nexusmeet_guest_name');
     var id = randomRoomId(8);
-    if (!s && !guestName) {
-      sessionStorage.setItem('intended_room', id);
-      openAuthModal();
-      return;
-    }
     saveRoom(id);
     window.location.href = '/app.html#room=' + id;
   }
@@ -210,14 +203,6 @@
       joinCodeInput.focus();
       return;
     }
-    var s = getStoredSession();
-    var guestName = localStorage.getItem('nexusmeet_guest_name');
-    if (!s && !guestName) {
-      sessionStorage.setItem('intended_room', code);
-      closeJoinModal();
-      openAuthModal();
-      return;
-    }
     saveRoom(code);
     closeJoinModal();
     window.location.href = '/app.html#room=' + encodeURIComponent(code);
@@ -263,13 +248,6 @@
     if (!/^[A-Za-z0-9-]{1,64}$/.test(code)) {
       alert('Room code must contain only letters, numbers, or hyphens.');
       heroJoinInput.focus();
-      return;
-    }
-    var s = getStoredSession();
-    var guestName = localStorage.getItem('nexusmeet_guest_name');
-    if (!s && !guestName) {
-      sessionStorage.setItem('intended_room', code);
-      openAuthModal();
       return;
     }
     saveRoom(code);
