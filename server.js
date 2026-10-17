@@ -109,6 +109,80 @@ function createServer(options = {}) {
     return res.status(401).json({ error: 'Invalid login credentials' });
   });
 
+  app.post('/api/signup', express.json(), async (req, res) => {
+    let { email, password, name } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'Missing email or password' });
+    email = String(email).trim();
+    name = String(name || '').trim() || email.split('@')[0];
+    if (email.indexOf('@') === -1) email = email + '@gmail.com';
+
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      const sbClient = createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON);
+      const { data, error } = await sbClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: name, display_name: name }
+        }
+      });
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+      return res.json({
+        user: data.user,
+        session: data.session,
+        needsVerification: !data.session
+      });
+    } catch (err) {
+      return res.status(500).json({ error: err.message || 'Signup failed' });
+    }
+  });
+
+  app.post('/api/verify-otp', express.json(), async (req, res) => {
+    let { email, token, type } = req.body || {};
+    if (!email || !token) return res.status(400).json({ error: 'Missing email or verification code' });
+    email = String(email).trim();
+    token = String(token).trim();
+    type = type || 'signup';
+
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      const sbClient = createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON);
+      let { data, error } = await sbClient.auth.verifyOtp({ email, token, type });
+      if (error && type === 'signup') {
+        const retry = await sbClient.auth.verifyOtp({ email, token, type: 'email' });
+        if (!retry.error) {
+          data = retry.data;
+          error = null;
+        }
+      }
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+      return res.json({ session: data.session, user: data.user });
+    } catch (err) {
+      return res.status(500).json({ error: err.message || 'Verification failed' });
+    }
+  });
+
+  app.post('/api/resend-otp', express.json(), async (req, res) => {
+    let { email, type } = req.body || {};
+    if (!email) return res.status(400).json({ error: 'Missing email' });
+    email = String(email).trim();
+    type = type || 'signup';
+
+    try {
+      const { createClient } = require('@supabase/supabase-js');
+      const sbClient = createClient(DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_ANON);
+      const { error } = await sbClient.auth.resend({ email, type });
+      if (error) return res.status(400).json({ error: error.message });
+      return res.json({ success: true });
+    } catch (err) {
+      return res.status(500).json({ error: err.message || 'Resend failed' });
+    }
+  });
+
   app.get('/api/ice', (req, res) => {
     const stunUrls = process.env.STUN_URLS
       ? process.env.STUN_URLS.split(',').map((s) => s.trim())
@@ -739,6 +813,8 @@ function createServer(options = {}) {
     const room = currentRoom(ws);
     if (!room) return;
     send(ws, { type: 'snapshot', state: stateObject(room), version: room.version });
+    send(ws, { type: 'presence', users: presenceOf(room) });
+    send(ws, { type: 'chat_history', messages: room.chatHistory || [] });
   }
 
   function rateLimited(ws) {

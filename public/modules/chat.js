@@ -44,11 +44,18 @@
     var typingUsers = new Map(); // id -> timer
     var typingTimeout = null;
     var isTyping = false;
+    var closeTimeout = null;
 
     function openDrawer() {
+      if (closeTimeout) {
+        clearTimeout(closeTimeout);
+        closeTimeout = null;
+      }
       isOpen = true;
-      drawerEl.classList.add('open');
       drawerEl.removeAttribute('hidden');
+      drawerEl.hidden = false;
+      void drawerEl.offsetWidth;
+      drawerEl.classList.add('open');
       unreadCount = 0;
       updateBadge();
       if (inputEl) inputEl.focus();
@@ -58,8 +65,12 @@
     function closeDrawer() {
       isOpen = false;
       drawerEl.classList.remove('open');
-      setTimeout(function () {
-        if (!isOpen) drawerEl.setAttribute('hidden', '');
+      if (closeTimeout) clearTimeout(closeTimeout);
+      closeTimeout = setTimeout(function () {
+        if (!isOpen) {
+          drawerEl.setAttribute('hidden', '');
+          drawerEl.hidden = true;
+        }
       }, 250);
       if (isTyping) {
         isTyping = false;
@@ -167,8 +178,47 @@
       return item;
     }
 
+    var messageMap = new Map();
+    var storageKey = 'nexus_chat_' + (room ? (room.id || 'default') : 'default');
+
+    function saveChatToStorage() {
+      try {
+        var msgs = Array.from(messageMap.values()).slice(-100);
+        sessionStorage.setItem(storageKey, JSON.stringify(msgs));
+      } catch (e) {}
+    }
+
+    function loadChatFromStorage() {
+      try {
+        var raw = sessionStorage.getItem(storageKey);
+        if (raw) {
+          var arr = JSON.parse(raw);
+          if (Array.isArray(arr) && arr.length > 0) {
+            loadHistory(arr);
+          }
+        }
+      } catch (e) {}
+    }
+
+    function rebuildMessagesList() {
+      if (!messagesList) return;
+      messagesList.innerHTML = '';
+      var sorted = Array.from(messageMap.values()).sort(function (a, b) {
+        return (a.ts || 0) - (b.ts || 0);
+      });
+      sorted.forEach(function (m) {
+        var item = renderMessage(m);
+        messagesList.appendChild(item);
+      });
+      saveChatToStorage();
+      scrollToBottom();
+    }
+
     function appendMessage(msg) {
       if (!messagesList || !msg) return;
+      if (msg.id && messageMap.has(msg.id)) return; // Prevent duplicate
+      if (msg.id) messageMap.set(msg.id, msg);
+      saveChatToStorage();
 
       var wasAtBottom = isScrolledToBottom();
       var isMine = (room && room.me && (msg.clientId === room.me.id || (room.me.user && msg.userId === room.me.user.id)));
@@ -187,16 +237,23 @@
     }
 
     function loadHistory(messages) {
-      if (!messagesList || !Array.isArray(messages)) return;
-      messagesList.innerHTML = '';
+      if (!messagesList || !Array.isArray(messages) || messages.length === 0) return;
+      var added = false;
       messages.forEach(function (m) {
-        var item = renderMessage(m);
-        messagesList.appendChild(item);
+        if (m && m.id && !messageMap.has(m.id)) {
+          messageMap.set(m.id, m);
+          added = true;
+        }
       });
-      scrollToBottom();
+      if (added || messagesList.children.length === 0) {
+        rebuildMessagesList();
+      }
     }
 
     function removeMessage(id) {
+      if (!id) return;
+      messageMap.delete(id);
+      saveChatToStorage();
       var el = document.getElementById('chat-msg-' + id);
       if (el) {
         el.style.opacity = '0';
@@ -294,10 +351,17 @@
       }
     });
 
+    // Load cached messages from previous session if any
+    loadChatFromStorage();
+
     // Wire up room event listeners
     if (room) {
       if (room.onChat) room.onChat(appendMessage);
       if (room.onChatHistory) room.onChatHistory(loadHistory);
+      if (room.getChatHistory) {
+        var existing = room.getChatHistory();
+        if (existing && existing.length > 0) loadHistory(existing);
+      }
       if (room.onChatTyping) room.onChatTyping(handleTypingEvent);
       if (room.onChatDelete) room.onChatDelete(function (data) {
         if (data && data.id) removeMessage(data.id);

@@ -213,10 +213,27 @@
   var resendBtn = document.getElementById('resendBtn');
   if (resendBtn) {
     resendBtn.addEventListener('click', function () {
-      if (!supabase || !pendingEmail) return;
-      supabase.auth.resend({ type: 'signup', email: pendingEmail })
-        .then(function () { toast('Code resent!', 'info'); })
-        .catch(function (err) { toast(err.message || 'Resend failed', 'error'); });
+      if (!pendingEmail) { toast('No pending email found.', 'error'); return; }
+      var type = verifyMode === 'forgot' ? 'recovery' : 'signup';
+      fetch('/api/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail, type: type })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.error && supabase) {
+          return supabase.auth.resend({ type: type, email: pendingEmail });
+        }
+        return res;
+      })
+      .then(function () {
+        toast('New verification code sent to ' + pendingEmail, 'info', 4000);
+        clearOTP();
+      })
+      .catch(function (err) {
+        toast(err.message || 'Resend failed', 'error');
+      });
     });
   }
 
@@ -328,23 +345,54 @@
 
       if (!name || !email || !password) { toast('Please fill in all fields.', 'error'); return; }
       if (getStrength(password) < 2) { toast('Password is too weak.', 'error'); return; }
-      if (!supabase) { toast('Supabase not configured — auth is disabled in dev mode.', 'error'); return; }
+
+      if (email.indexOf('@') === -1) email = email + '@gmail.com';
 
       setLoading(btn, true, 'Creating account…');
-      supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: { data: { display_name: name, full_name: name } }
-      }).then(function (res) {
+
+      fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, email: email, password: password })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.error) {
+          if (supabase) {
+            return supabase.auth.signUp({
+              email: email,
+              password: password,
+              options: { data: { display_name: name, full_name: name } }
+            }).then(function (sbRes) {
+              if (sbRes.error) throw sbRes.error;
+              return { user: sbRes.data.user, session: sbRes.data.session, needsVerification: !sbRes.data.session };
+            });
+          }
+          throw new Error(res.error);
+        }
+        return res;
+      })
+      .then(function (data) {
         setLoading(btn, false);
-        if (res.error) { toast(res.error.message, 'error'); return; }
         pendingEmail = email;
         verifyMode = 'signup';
+
+        if (data && data.session) {
+          localStorage.setItem('supabase_session', JSON.stringify(data.session));
+          toast('Account created successfully!', 'success', 2000);
+          setTimeout(redirectAfterAuth, 500);
+          return;
+        }
+
         document.getElementById('verifySubtitle').textContent =
-          'We sent a 6-digit code to ' + email + '. Enter it below.';
+          'We sent a 6-digit confirmation code to ' + email + '. Enter it below to confirm your account.';
         showView('verify');
-        toast('Account created! Check your email.', 'success', 4000);
-      }).catch(function (err) {
+        clearOTP();
+        var firstOtp = document.getElementById('otp0');
+        if (firstOtp) setTimeout(function () { firstOtp.focus(); }, 150);
+        toast('Verification code sent! Please check your inbox.', 'success', 5000);
+      })
+      .catch(function (err) {
         setLoading(btn, false);
         toast(err.message || 'Signup failed', 'error');
       });
@@ -388,26 +436,46 @@
       var btn = this;
 
       if (code.length !== 6) { toast('Enter the full 6-digit code.', 'error'); return; }
-      if (!supabase) { toast('Supabase not configured.', 'error'); return; }
 
-      setLoading(btn, true, 'Verifying…');
+      setLoading(btn, true, 'Verifying code…');
       var type = verifyMode === 'forgot' ? 'recovery' : 'signup';
-      supabase.auth.verifyOtp({ email: pendingEmail, token: code, type: type })
-        .then(function (res) {
-          setLoading(btn, false);
-          if (res.error) { toast(res.error.message, 'error'); clearOTP(); return; }
-          if (verifyMode === 'forgot') {
-            showView('newpass');
-          } else {
-            toast('Email verified! Redirecting…', 'success', 2000);
-            setTimeout(redirectAfterAuth, 800);
+
+      fetch('/api/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingEmail, token: code, type: type })
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res.error) {
+          if (supabase) {
+            return supabase.auth.verifyOtp({ email: pendingEmail, token: code, type: type })
+              .then(function (sbRes) {
+                if (sbRes.error) throw sbRes.error;
+                return sbRes.data;
+              });
           }
-        })
-        .catch(function (err) {
-          setLoading(btn, false);
-          toast(err.message || 'Verification failed', 'error');
-          clearOTP();
-        });
+          throw new Error(res.error);
+        }
+        return res;
+      })
+      .then(function (data) {
+        setLoading(btn, false);
+        if (verifyMode === 'forgot') {
+          showView('newpass');
+        } else {
+          if (data && data.session) {
+            localStorage.setItem('supabase_session', JSON.stringify(data.session));
+          }
+          toast('Email verified successfully! Logging you in…', 'success', 2000);
+          setTimeout(redirectAfterAuth, 800);
+        }
+      })
+      .catch(function (err) {
+        setLoading(btn, false);
+        toast(err.message || 'Invalid verification code. Please check your email.', 'error');
+        clearOTP();
+      });
     });
   }
 

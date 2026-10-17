@@ -402,6 +402,7 @@
     var pingTimer = null;
     var lastSeen = 0;
     var cursorLayer = null;
+    var lastChatHistory = [];
     var emitter = createEmitter();
 
     function pendingCount() {
@@ -562,13 +563,16 @@
           });
           return;
         case 'chat':
+          if (!lastChatHistory) lastChatHistory = [];
+          lastChatHistory.push(msg);
           emitter.emit('chat', function () {
             return [msg];
           });
           return;
         case 'chat_history':
+          lastChatHistory = Array.isArray(msg.messages) ? msg.messages.slice() : [];
           emitter.emit('chat_history', function () {
-            return [msg.messages || []];
+            return [lastChatHistory];
           });
           return;
         case 'chat_typing':
@@ -577,6 +581,9 @@
           });
           return;
         case 'chat_delete':
+          if (lastChatHistory && msg && msg.id) {
+            lastChatHistory = lastChatHistory.filter(function (m) { return m.id !== msg.id; });
+          }
           emitter.emit('chat_delete', function () {
             return [msg];
           });
@@ -852,7 +859,16 @@
       },
       /** Listen for room chat history sent on join */
       onChatHistory: function (fn) {
+        if (lastChatHistory && lastChatHistory.length > 0 && typeof fn === 'function') {
+          try {
+            fn(clone(lastChatHistory));
+          } catch (e) {}
+        }
         return emitter.on('chat_history', fn);
+      },
+      /** Get cached chat history */
+      getChatHistory: function () {
+        return clone(lastChatHistory || []);
       },
       /** Listen for typing indicators from peers */
       onChatTyping: function (fn) {

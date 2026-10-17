@@ -614,11 +614,22 @@
     this.room.onDrawLive(function (msg) {
       if (!msg || !msg.id) return;
       if (msg.done) {
-        self.remoteLiveStrokes.delete(msg.id);
+        var existing = self.remoteLiveStrokes.get(msg.id);
+        if (existing) {
+          if (msg.points) existing.points = msg.points;
+          existing.done = true;
+        } else {
+          self.remoteLiveStrokes.set(msg.id, msg);
+        }
         if (self.remoteTimeouts.has(msg.id)) {
           clearTimeout(self.remoteTimeouts.get(msg.id));
-          self.remoteTimeouts.delete(msg.id);
         }
+        var doneTimer = setTimeout(function () {
+          self.remoteLiveStrokes.delete(msg.id);
+          self.remoteTimeouts.delete(msg.id);
+          self.render();
+        }, 3000);
+        self.remoteTimeouts.set(msg.id, doneTimer);
       } else {
         self.remoteLiveStrokes.set(msg.id, msg);
         if (self.remoteTimeouts.has(msg.id)) {
@@ -644,6 +655,10 @@
             hasObj = true;
             var strokeId = k.slice(4);
             self.remoteLiveStrokes.delete(strokeId);
+            if (self.remoteTimeouts.has(strokeId)) {
+              clearTimeout(self.remoteTimeouts.get(strokeId));
+              self.remoteTimeouts.delete(strokeId);
+            }
           }
         }
         if (hasObj) self.render();

@@ -2990,8 +2990,7 @@ body {
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.chat-drawer.open,
-.chat-drawer:not([hidden]) {
+.chat-drawer.open {
   transform: translateX(0);
 }
 

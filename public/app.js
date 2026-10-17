@@ -395,14 +395,13 @@
 
   function isAuthor(note) {
     if (!note) return false;
+    if (room.role === 'owner' || room.role === 'host') return true;
     var me = room.me;
     if (!me) return false;
-    if (note.authorId) {
-      return note.authorId === me.id;
-    }
-    if (note.author && me.name) {
-      return note.author === me.name;
-    }
+    if (note.userId && me.user && note.userId === me.user.id) return true;
+    if (note.authorId && note.authorId === me.id) return true;
+    if (note.author && me.name && note.author.trim().toLowerCase() === me.name.trim().toLowerCase()) return true;
+    if (!note.authorId && !note.userId && !note.author) return true;
     return false;
   }
 
@@ -721,6 +720,7 @@
       color: COLORS[Math.floor(Math.random() * COLORS.length)],
       author: room.me.name,
       authorId: room.me.id,
+      userId: room.me.user ? room.me.user.id : null,
       createdAt: Date.now()
     };
     patch['pos:' + id] = { x: clamp(Math.round(x), 0, BOARD_W - NOTE_W), y: clamp(Math.round(y), 0, BOARD_H - NOTE_H), z: topZ() };
