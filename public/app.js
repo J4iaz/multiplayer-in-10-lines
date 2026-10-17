@@ -80,6 +80,7 @@
   var reactionsInstance = null;
   var avatarInstance = null;
   var videoInstance = null;
+  var showGatePrompt = null;
 
   function initAllModules() {
     try {
@@ -145,6 +146,13 @@
       var btnCallTop = $('btn-toggle-call-top');
       if (btnCallTop && videoInstance) {
         btnCallTop.onclick = function () {
+          if (!session && !localStorage.getItem('nexusmeet_guest_name')) {
+            showGatePrompt('call', function () {
+              if (videoInstance.inCall()) videoInstance.endCall();
+              else videoInstance.startCall();
+            });
+            return;
+          }
           if (videoInstance.inCall()) {
             videoInstance.endCall();
           } else {
@@ -1435,29 +1443,60 @@
     if (newRoom && newRoom !== room.id) location.reload();
   });
 
-  // --- Mandatory Entry Gate Modal (Sign In / Guest Prompt) ---
+  // --- Auth / Sign In Prompt Modal (Triggered on Join, Invite, Call) ---
   var gateModal = $('gate-modal');
   var gateGuestForm = $('gate-guest-form');
   var gateNameInput = $('gate-name-input');
   var gateEnterBtn = $('gate-enter-btn');
   var gateAuthLink = $('gate-auth-link');
+  var gateCloseBtn = $('gate-close-btn');
   var currentRoomCode = (location.hash.match(/room=([A-Za-z0-9-]+)/) || [])[1] || room.id;
+  var pendingGateAction = null;
 
   if (gateAuthLink) {
     gateAuthLink.href = '/auth.html#room=' + encodeURIComponent(currentRoomCode);
   }
 
-  function checkGateModal() {
-    var storedGuest = localStorage.getItem('nexusmeet_guest_name');
-    if (!session && !storedGuest) {
-      if (gateModal) {
-        gateModal.style.display = 'flex';
-        gateModal.removeAttribute('hidden');
-        gateModal.classList.add('is-open');
-        if (boardWrap) boardWrap.classList.add('blurred');
-        if (gateNameInput) setTimeout(function () { gateNameInput.focus(); }, 100);
-      }
+  function showGatePrompt(action, callback) {
+    pendingGateAction = callback || null;
+    var titleEl = $('gate-modal-title');
+    var descEl = $('gate-modal-desc');
+
+    if (action === 'invite') {
+      if (titleEl) titleEl.textContent = 'Sign In to Invite';
+      if (descEl) descEl.textContent = 'Sign in or enter a name so collaborators recognize you';
+    } else if (action === 'join') {
+      if (titleEl) titleEl.textContent = 'Sign In to Join Room';
+      if (descEl) descEl.textContent = 'Sign in or enter a name to enter another room';
+    } else if (action === 'call') {
+      if (titleEl) titleEl.textContent = 'Sign In to Join Call';
+      if (descEl) descEl.textContent = 'Sign in or enter a name before starting video call';
+    } else {
+      if (titleEl) titleEl.textContent = 'Welcome to NexusMeet';
+      if (descEl) descEl.textContent = 'Sign in or enter a name to continue';
     }
+
+    if (gateModal) {
+      gateModal.style.display = 'flex';
+      gateModal.removeAttribute('hidden');
+      gateModal.classList.add('is-open');
+      if (gateNameInput) setTimeout(function () { gateNameInput.focus(); }, 100);
+    }
+  }
+
+  function closeGateModal() {
+    if (gateModal) {
+      gateModal.style.display = 'none';
+      gateModal.classList.remove('is-open');
+    }
+    pendingGateAction = null;
+  }
+
+  if (gateCloseBtn) gateCloseBtn.addEventListener('click', closeGateModal);
+  if (gateModal) {
+    gateModal.addEventListener('click', function (e) {
+      if (e.target === gateModal) closeGateModal();
+    });
   }
 
   function handleGateEnter() {
@@ -1470,12 +1509,13 @@
     localStorage.setItem('nexusmeet_guest_name', name);
     if (room && room.setName) room.setName(name);
     if (nameInput) nameInput.value = name;
-    if (gateModal) {
-      gateModal.style.display = 'none';
-      gateModal.classList.remove('is-open');
-    }
-    if (boardWrap) boardWrap.classList.remove('blurred');
+    closeGateModal();
     toast('Joined room as ' + name);
+    if (typeof pendingGateAction === 'function') {
+      var cb = pendingGateAction;
+      pendingGateAction = null;
+      cb();
+    }
   }
 
   if (gateEnterBtn) gateEnterBtn.addEventListener('click', handleGateEnter);
@@ -1484,7 +1524,42 @@
     handleGateEnter();
   });
 
-  checkGateModal();
+  // Wire up Invite buttons to trigger auth prompt if not authenticated
+  function onInviteTrigger(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!session && !localStorage.getItem('nexusmeet_guest_name')) {
+      showGatePrompt('invite', function () {
+        openInviteModal();
+      });
+      return;
+    }
+    openInviteModal();
+  }
+
+  var copyLinkBtn = $('copy-link');
+  if (copyLinkBtn) copyLinkBtn.onclick = onInviteTrigger;
+  if (emptyInvite) emptyInvite.onclick = onInviteTrigger;
+
+  // Wire up Join button to trigger auth prompt if not authenticated
+  if (joinRoomBtn) {
+    joinRoomBtn.onclick = function (e) {
+      if (e && e.preventDefault) e.preventDefault();
+      if (!session && !localStorage.getItem('nexusmeet_guest_name')) {
+        showGatePrompt('join', function () {
+          openJoinModal();
+        });
+        return;
+      }
+      openJoinModal();
+    };
+  }
+
+  // Wire up Sign In button in topbar
+  if (signInBtn) {
+    signInBtn.onclick = function () {
+      showGatePrompt('signin');
+    };
+  }
 
   updateAuthUI();
   renderStatus({ status: room.status, pending: 0 });
