@@ -1438,6 +1438,35 @@ body {
   .board-wrap { padding-top: 64px; }
 }
 
+/* Mobile responsive rules for floating dock */
+@media (max-width: 640px) {
+  .room-dock {
+    bottom: 14px;
+    padding: 6px 10px;
+    gap: 4px;
+    max-width: calc(100vw - 20px);
+  }
+  .dock-btn {
+    padding: 0 10px;
+    height: 36px;
+  }
+  .dock-label {
+    display: none;
+  }
+  .dock-reactions {
+    gap: 2px;
+  }
+  .reaction-dock-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  .dock-sep {
+    margin: 0 2px;
+    height: 18px;
+  }
+}
+
 /* ----------------------------------------------------------------
    13. REDUCED MOTION
    ---------------------------------------------------------------- */

@@ -177,6 +177,9 @@
   // ── Guest mode ──
   if (loginGuestBtn) {
     loginGuestBtn.addEventListener('click', function () {
+      if (!localStorage.getItem('nexusmeet_guest_name')) {
+        localStorage.setItem('nexusmeet_guest_name', 'Guest_' + Math.floor(1000 + Math.random() * 9000));
+      }
       redirectAfterAuth();
     });
   }
@@ -248,6 +251,9 @@
         .then(function (res) {
           setLoading(btn, false);
           if (res.error) { toast(res.error.message, 'error'); return; }
+          if (res.data && res.data.session) {
+            localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
+          }
           toast('Signed in!', 'success', 2000);
           setTimeout(redirectAfterAuth, 600);
         })
@@ -417,8 +423,18 @@
         }
         initSupabase();
         if (supabase) {
+          supabase.auth.onAuthStateChange(function (event, session) {
+            if (session) {
+              localStorage.setItem('supabase_session', JSON.stringify(session));
+              if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+                toast('Signed in successfully!', 'success', 2000);
+                setTimeout(redirectAfterAuth, 500);
+              }
+            }
+          });
           supabase.auth.getSession().then(function (res) {
             if (res.data && res.data.session) {
+              localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
               redirectAfterAuth();
             }
           });

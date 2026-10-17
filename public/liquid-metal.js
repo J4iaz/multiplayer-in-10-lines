@@ -57,69 +57,74 @@
 
   function initShaderCanvas(canvas) {
     if (!canvas) return null;
-    var gl = canvas.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: false });
-    if (!gl) return null;
+    try {
+      var gl = canvas.getContext('webgl', { antialias: false, alpha: false, preserveDrawingBuffer: false });
+      if (!gl) return null;
 
-    var prog = gl.createProgram();
-    gl.attachShader(prog, compileShader(gl, gl.VERTEX_SHADER, SHADER_VERTEX));
-    gl.attachShader(prog, compileShader(gl, gl.FRAGMENT_SHADER, SHADER_FRAGMENT));
-    gl.linkProgram(prog);
-    gl.useProgram(prog);
+      var prog = gl.createProgram();
+      gl.attachShader(prog, compileShader(gl, gl.VERTEX_SHADER, SHADER_VERTEX));
+      gl.attachShader(prog, compileShader(gl, gl.FRAGMENT_SHADER, SHADER_FRAGMENT));
+      gl.linkProgram(prog);
+      gl.useProgram(prog);
 
-    var buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
+      var buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl.STATIC_DRAW);
 
-    var pos = gl.getAttribLocation(prog, 'position');
-    gl.enableVertexAttribArray(pos);
-    gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+      var pos = gl.getAttribLocation(prog, 'position');
+      gl.enableVertexAttribArray(pos);
+      gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
 
-    var uTime = gl.getUniformLocation(prog, 'u_time');
-    var uRes = gl.getUniformLocation(prog, 'u_resolution');
-    var uSpeed = gl.getUniformLocation(prog, 'u_speed');
+      var uTime = gl.getUniformLocation(prog, 'u_time');
+      var uRes = gl.getUniformLocation(prog, 'u_resolution');
+      var uSpeed = gl.getUniformLocation(prog, 'u_speed');
 
-    var currentSpeed = 0.6;
-    var targetSpeed = 0.6;
-    var elapsed = 0;
-    var last = performance.now();
-    var frameId = null;
+      var currentSpeed = 0.6;
+      var targetSpeed = 0.6;
+      var elapsed = 0;
+      var last = performance.now();
+      var frameId = null;
 
-    function resize() {
-      var dpr = Math.min(global.devicePixelRatio || 1, 1.5);
-      var w = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      var h = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      if (canvas.width !== w || canvas.height !== h) {
-        canvas.width = w;
-        canvas.height = h;
-        gl.viewport(0, 0, w, h);
+      function resize() {
+        var dpr = Math.min(global.devicePixelRatio || 1, 1.5);
+        var w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+        var h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+        if (canvas.width !== w || canvas.height !== h) {
+          canvas.width = w;
+          canvas.height = h;
+          gl.viewport(0, 0, w, h);
+        }
       }
-    }
 
-    function render(now) {
-      var dt = Math.min((now - last) / 1000, 0.1);
-      last = now;
+      function render(now) {
+        var dt = Math.min((now - last) / 1000, 0.1);
+        last = now;
 
-      currentSpeed += (targetSpeed - currentSpeed) * 0.15;
-      elapsed += dt * currentSpeed;
+        currentSpeed += (targetSpeed - currentSpeed) * 0.15;
+        elapsed += dt * currentSpeed;
 
-      resize();
-      gl.uniform1f(uTime, elapsed);
-      gl.uniform1f(uSpeed, 1.0);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
+        resize();
+        gl.uniform1f(uTime, elapsed);
+        gl.uniform1f(uSpeed, 1.0);
+        gl.uniform2f(uRes, canvas.width, canvas.height);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
 
+        frameId = requestAnimationFrame(render);
+      }
       frameId = requestAnimationFrame(render);
-    }
-    frameId = requestAnimationFrame(render);
 
-    return {
-      setSpeed: function (s) {
-        targetSpeed = s;
-      },
-      destroy: function () {
-        if (frameId) cancelAnimationFrame(frameId);
-      }
-    };
+      return {
+        setSpeed: function (s) {
+          targetSpeed = s;
+        },
+        destroy: function () {
+          if (frameId) cancelAnimationFrame(frameId);
+        }
+      };
+    } catch (e) {
+      console.warn('[liquid-metal] WebGL shader skipped:', e);
+      return null;
+    }
   }
 
   function setupLiquidMetalButton(btnEl) {

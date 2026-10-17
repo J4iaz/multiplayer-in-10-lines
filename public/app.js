@@ -59,6 +59,9 @@
       var userDisplayName = (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.display_name)) || (session.user.email ? session.user.email.split('@')[0] : '');
       if (userDisplayName) joinOptions.name = userDisplayName;
     }
+  } else {
+    var guestName = localStorage.getItem('nexusmeet_guest_name');
+    if (guestName) joinOptions.name = guestName;
   }
 
   // Pre-fill password from sessionStorage if available
@@ -923,6 +926,7 @@
   function saveName() {
     try {
       nameInput.value = room.setName(nameInput.value);
+      localStorage.setItem('nexusmeet_guest_name', nameInput.value);
     } catch (err) {
       nameInput.value = room.me.name;
       toast('Name cannot be empty');

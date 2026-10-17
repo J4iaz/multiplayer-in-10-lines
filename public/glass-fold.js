@@ -94,101 +94,108 @@
 
   function initGlassFold(canvas, opts) {
     if (!canvas) return null;
-    var config = Object.assign({
-      color1: '#1e3cc8',
-      color2: '#06081e',
-      color3: '#96d7ff',
-      speed: 0.5,
-      scale: 1,
-      noise: 0.12
-    }, opts || {});
+    try {
+      var config = Object.assign({
+        color1: '#1e3cc8',
+        color2: '#06081e',
+        color3: '#96d7ff',
+        speed: 0.5,
+        scale: 1,
+        noise: 0.12
+      }, opts || {});
 
-    var gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
-    if (!gl) return null;
+      var gl = canvas.getContext('webgl', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+      if (!gl) return null;
 
-    var program = gl.createProgram();
-    gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX));
-    gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT));
-    gl.linkProgram(program);
-    gl.useProgram(program);
+      var program = gl.createProgram();
+      gl.attachShader(program, compile(gl, gl.VERTEX_SHADER, VERTEX));
+      gl.attachShader(program, compile(gl, gl.FRAGMENT_SHADER, FRAGMENT));
+      gl.linkProgram(program);
+      gl.useProgram(program);
 
-    var buffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
-      gl.STATIC_DRAW
-    );
-    var position = gl.getAttribLocation(program, 'position');
-    gl.enableVertexAttribArray(position);
-    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+      var buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]),
+        gl.STATIC_DRAW
+      );
+      var position = gl.getAttribLocation(program, 'position');
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
 
-    var u = {
-      time: gl.getUniformLocation(program, 'u_time'),
-      color1: gl.getUniformLocation(program, 'u_color1'),
-      color2: gl.getUniformLocation(program, 'u_color2'),
-      color3: gl.getUniformLocation(program, 'u_color3'),
-      scale: gl.getUniformLocation(program, 'u_scale'),
-      noise: gl.getUniformLocation(program, 'u_noise'),
-      resolution: gl.getUniformLocation(program, 'u_resolution')
-    };
+      var u = {
+        time: gl.getUniformLocation(program, 'u_time'),
+        color1: gl.getUniformLocation(program, 'u_color1'),
+        color2: gl.getUniformLocation(program, 'u_color2'),
+        color3: gl.getUniformLocation(program, 'u_color3'),
+        scale: gl.getUniformLocation(program, 'u_scale'),
+        noise: gl.getUniformLocation(program, 'u_noise'),
+        resolution: gl.getUniformLocation(program, 'u_resolution')
+      };
 
-    var c1 = hexToVec3(config.color1);
-    var c2 = hexToVec3(config.color2);
-    var c3 = hexToVec3(config.color3);
+      var c1 = hexToVec3(config.color1);
+      var c2 = hexToVec3(config.color2);
+      var c3 = hexToVec3(config.color3);
 
-    function resize() {
-      var dpr = Math.min(global.devicePixelRatio || 1, 1.5);
-      var width = Math.max(1, Math.round(canvas.clientWidth * dpr));
-      var height = Math.max(1, Math.round(canvas.clientHeight * dpr));
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
+      function resize() {
+        var dpr = Math.min(global.devicePixelRatio || 1, 1.5);
+        var width = Math.max(1, Math.round(canvas.clientWidth * dpr));
+        var height = Math.max(1, Math.round(canvas.clientHeight * dpr));
+        if (canvas.width !== width || canvas.height !== height) {
+          canvas.width = width;
+          canvas.height = height;
+        }
+        gl.viewport(0, 0, width, height);
       }
-      gl.viewport(0, 0, width, height);
-    }
 
-    var elapsed = 0;
-    var last = null;
-    var frame = null;
-    var still = global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var elapsed = 0;
+      var last = null;
+      var frame = null;
+      var still = global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    function draw(now) {
-      if (last !== null) {
-        elapsed += Math.min((now - last) / 1000, 0.1) * config.speed;
+      function draw(now) {
+        if (last !== null) {
+          elapsed += Math.min((now - last) / 1000, 0.1) * config.speed;
+        }
+        last = now;
+
+        resize();
+        gl.uniform1f(u.time, elapsed);
+        gl.uniform3fv(u.color1, c1);
+        gl.uniform3fv(u.color2, c2);
+        gl.uniform3fv(u.color3, c3);
+        gl.uniform1f(u.scale, config.scale);
+        gl.uniform1f(u.noise, config.noise);
+        gl.uniform2f(u.resolution, canvas.width, canvas.height);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
       }
-      last = now;
 
-      resize();
-      gl.uniform1f(u.time, elapsed);
-      gl.uniform3fv(u.color1, c1);
-      gl.uniform3fv(u.color2, c2);
-      gl.uniform3fv(u.color3, c3);
-      gl.uniform1f(u.scale, config.scale);
-      gl.uniform1f(u.noise, config.noise);
-      gl.uniform2f(u.resolution, canvas.width, canvas.height);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-    }
-
-    function loop(now) {
-      draw(now);
-      if (!still) frame = requestAnimationFrame(loop);
-    }
-    frame = requestAnimationFrame(loop);
-
-    var observer = new ResizeObserver(function () {
-      if (still) draw(performance.now());
-    });
-    observer.observe(canvas);
-
-    return {
-      destroy: function () {
-        if (frame) cancelAnimationFrame(frame);
-        observer.disconnect();
-        gl.deleteBuffer(buffer);
-        gl.deleteProgram(program);
+      function loop(now) {
+        draw(now);
+        if (!still) frame = requestAnimationFrame(loop);
       }
-    };
+      frame = requestAnimationFrame(loop);
+
+      var observer = new ResizeObserver(function () {
+        if (still) draw(performance.now());
+      });
+      observer.observe(canvas);
+
+      return {
+        destroy: function () {
+          if (frame) cancelAnimationFrame(frame);
+          observer.disconnect();
+          try {
+            gl.deleteBuffer(buffer);
+            gl.deleteProgram(program);
+          } catch (e) {}
+        }
+      };
+    } catch (e) {
+      console.warn('[glass-fold] WebGL initialization skipped:', e);
+      return null;
+    }
   }
 
   global.initGlassFold = initGlassFold;
