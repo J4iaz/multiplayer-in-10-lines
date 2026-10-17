@@ -3452,7 +3452,7 @@ body {
   top: 50%;
   transform: translateY(-50%);
   z-index: 1200;
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 6px;
   padding: 8px 6px;
@@ -3463,6 +3463,10 @@ body {
   border-radius: 16px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), 0 0 24px rgba(150, 215, 255, 0.12);
   pointer-events: auto;
+}
+
+.wb-toolbar.is-visible {
+  display: flex !important;
 }
 
 .wb-tools-group {
@@ -3599,11 +3603,15 @@ body {
   border-radius: 14px;
   padding: 12px 14px;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
-  display: flex;
+  display: none;
   flex-direction: column;
   gap: 10px;
   min-width: 150px;
   transition: opacity 0.2s, transform 0.2s;
+}
+
+.wb-props-panel.is-visible {
+  display: flex !important;
 }
 
 .wb-props-row {

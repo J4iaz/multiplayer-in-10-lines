@@ -187,9 +187,16 @@
           setTimeout(function () { emptyHint.hidden = true; }, 200);
         }
         if (whiteboardInstance) {
-          var newTool = whiteboardInstance.tool === 'select' ? 'pencil' : 'select';
-          whiteboardInstance.setTool(newTool);
-          toast(newTool === 'pencil' ? '✏️ Draw Mode Active' : '👆 Select Mode Active');
+          var isVisible = whiteboardInstance.toolbar && whiteboardInstance.toolbar.classList.contains('is-visible');
+          if (isVisible) {
+            whiteboardInstance.hideUI();
+            whiteboardInstance.setTool('select');
+            toast('👆 Select Mode Active');
+          } else {
+            whiteboardInstance.showUI();
+            whiteboardInstance.setTool('pencil');
+            toast('✏️ Draw Mode Active');
+          }
         }
       };
     }
@@ -1478,9 +1485,8 @@
   // Welcome card CTA buttons
   if (emptyAddNote) {
     emptyAddNote.addEventListener('click', function () {
-      var x = boardWrap.scrollLeft + boardWrap.clientWidth / 2 - NOTE_W / 2 + (Math.random() * 60 - 30);
-      var y = boardWrap.scrollTop + boardWrap.clientHeight / 2 - NOTE_H / 2 + (Math.random() * 60 - 30);
-      addNote(x, y);
+      var p = getViewportCenterWorldPos();
+      addNote(p.x, p.y);
     });
   }
 

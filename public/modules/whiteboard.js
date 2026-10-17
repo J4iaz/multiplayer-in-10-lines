@@ -696,15 +696,31 @@
     }
   };
 
+  Whiteboard.prototype.showUI = function () {
+    if (this.toolbar) this.toolbar.classList.add('is-visible');
+    var isDrawingTool = this.tool === 'pencil' || this.tool === 'highlighter' || this.tool === 'shape';
+    if (this.propsPanel) this.propsPanel.classList.toggle('is-visible', isDrawingTool);
+  };
+
+  Whiteboard.prototype.hideUI = function () {
+    if (this.toolbar) this.toolbar.classList.remove('is-visible');
+    if (this.propsPanel) this.propsPanel.classList.remove('is-visible');
+  };
+
   Whiteboard.prototype.setTool = function (toolName) {
     this.tool = toolName;
-    this.toolbar.querySelectorAll('.wb-tool-btn').forEach(function (btn) {
-      btn.classList.toggle('is-active', btn.dataset.tool === toolName);
-    });
+    if (this.toolbar) {
+      this.toolbar.querySelectorAll('.wb-tool-btn').forEach(function (btn) {
+        btn.classList.toggle('is-active', btn.dataset.tool === toolName);
+      });
+    }
 
-    // Reveal properties panel only for drawing tools
+    // Reveal properties panel only if toolbar is visible AND for drawing tools
+    var isToolbarVisible = this.toolbar && this.toolbar.classList.contains('is-visible');
     var isDrawingTool = toolName === 'pencil' || toolName === 'highlighter' || toolName === 'shape';
-    this.propsPanel.classList.toggle('is-visible', isDrawingTool);
+    if (this.propsPanel) {
+      this.propsPanel.classList.toggle('is-visible', isToolbarVisible && isDrawingTool);
+    }
 
     this.updateCursor();
   };
