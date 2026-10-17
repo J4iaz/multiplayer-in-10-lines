@@ -28,6 +28,30 @@
 
   function getStoredSession() {
     try {
+      var rawHash = (location.hash || '').replace(/^#/, '');
+      var rawSearch = (location.search || '').replace(/^\?/, '');
+      var hashParams = new URLSearchParams(rawHash);
+      var searchParams = new URLSearchParams(rawSearch);
+      var hashToken = hashParams.get('access_token');
+      if (hashToken) {
+        var oauthSession = {
+          access_token: hashToken,
+          refresh_token: hashParams.get('refresh_token') || '',
+          token_type: hashParams.get('token_type') || 'bearer',
+          expires_in: parseInt(hashParams.get('expires_in') || '3600', 10)
+        };
+        try {
+          localStorage.setItem('supabase_session', JSON.stringify(oauthSession));
+        } catch (e) {}
+        try {
+          var cleanHash = '';
+          var roomVal = hashParams.get('room') || searchParams.get('room');
+          if (roomVal) cleanHash = '#room=' + encodeURIComponent(roomVal);
+          history.replaceState(null, '', location.pathname + (cleanHash || ''));
+        } catch (e) {}
+        return oauthSession;
+      }
+
       var custom = localStorage.getItem('supabase_session');
       if (custom) {
         var parsed = JSON.parse(custom);
@@ -58,6 +82,28 @@
     if (session.user) {
       var userDisplayName = (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.display_name)) || (session.user.email ? session.user.email.split('@')[0] : '');
       if (userDisplayName) joinOptions.name = userDisplayName;
+    }
+    if (!session.user || !session.user.id) {
+      fetch('https://ianklqisifysvaquqcbs.supabase.co/auth/v1/user', {
+        headers: {
+          'Authorization': 'Bearer ' + session.access_token,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbmtscWlzaWZ5c3ZhcXVxY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDY5MjIsImV4cCI6MjEwNzgyMjkyMn0.zI3s6Bq6eV0WcLOA-hj2JApK9jzunv107a3R9Ql4TfE'
+        }
+      })
+      .then(function (r) { return r.json(); })
+      .then(function (userData) {
+        if (userData && (userData.id || userData.email)) {
+          session.user = userData;
+          try { localStorage.setItem('supabase_session', JSON.stringify(session)); } catch (e) {}
+          var uName = (userData.user_metadata && (userData.user_metadata.full_name || userData.user_metadata.display_name)) || (userData.email ? userData.email.split('@')[0] : '');
+          if (uName) {
+            if (nameInput) nameInput.value = uName;
+            if (room && room.setName) room.setName(uName);
+          }
+          if (typeof updateAuthUI === 'function') updateAuthUI();
+        }
+      })
+      .catch(function () {});
     }
   } else {
     var guestName = localStorage.getItem('nexusmeet_guest_name');

@@ -5,12 +5,52 @@
 (function () {
   'use strict';
 
-  // ── State ──
-  var config = { hasAuth: false, hasAI: false, allowGuests: true };
+  // ── Supabase Setup & State ──
+  var DEFAULT_SB_URL = 'https://ianklqisifysvaquqcbs.supabase.co';
+  var DEFAULT_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbmtscWlzaWZ5c3ZhcXVxY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDY5MjIsImV4cCI6MjEwNzgyMjkyMn0.zI3s6Bq6eV0WcLOA-hj2JApK9jzunv107a3R9Ql4TfE';
+  window._SUPABASE_URL = DEFAULT_SB_URL;
+  window._SUPABASE_ANON_KEY = DEFAULT_SB_ANON;
+
+  var config = { hasAuth: true, hasAI: false, allowGuests: true };
   var supabase = null;
+  if (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) {
+    try {
+      supabase = window.supabase.createClient(DEFAULT_SB_URL, DEFAULT_SB_ANON, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+    } catch (e) {
+      console.warn('[auth] Immediate Supabase init error:', e);
+    }
+  }
+
   var currentView = 'login';
   var verifyMode = 'signup'; // 'signup' | 'forgot'
   var pendingEmail = '';
+
+  // ── Parse URL params (OAuth tokens, codes, errors, and intended room) ──
+  var rawHashStr = (window.location.hash || '').replace(/^#/, '');
+  var rawSearchStr = (window.location.search || '').replace(/^\?/, '');
+  var hashParams = new URLSearchParams(rawHashStr);
+  var searchParams = new URLSearchParams(rawSearchStr);
+
+  var targetRoom = hashParams.get('room') || searchParams.get('room');
+  if (!targetRoom && rawHashStr && /^[a-zA-Z0-9-]{1,64}$/.test(rawHashStr) && rawHashStr.indexOf('=') === -1) {
+    targetRoom = rawHashStr;
+  }
+  if (targetRoom) {
+    sessionStorage.setItem('intended_room', targetRoom);
+  }
+
+  var oauthError = hashParams.get('error_description') || searchParams.get('error_description') ||
+                   hashParams.get('error') || searchParams.get('error');
+  var oauthAccessToken = hashParams.get('access_token');
+  var oauthRefreshToken = hashParams.get('refresh_token');
+  var oauthCode = searchParams.get('code');
+  var isOAuthReturn = Boolean(oauthAccessToken || oauthCode);
 
   // ── DOM refs ──
   var tabs = document.getElementById('authTabs');
@@ -125,11 +165,19 @@
     inp.addEventListener('input', function () {
       var val = inp.value.replace(/\D/g, '');
       inp.value = val ? val[0] : '';
-      if (val && idx < otpInputs.length - 1) otpInputs[idx + 1].focus();
+      if (val && idx < otpInputs.length - 1) {
+        otpInputs[idx + 1].focus();
+      } else if (val && idx === otpInputs.length - 1) {
+        var vBtn = document.getElementById('verifyBtn');
+        if (getOTP().length === 6 && vBtn) vBtn.click();
+      }
     });
     inp.addEventListener('keydown', function (e) {
       if (e.key === 'Backspace' && !inp.value && idx > 0) {
         otpInputs[idx - 1].focus();
+      } else if (e.key === 'Enter') {
+        var vBtn = document.getElementById('verifyBtn');
+        if (vBtn) vBtn.click();
       }
     });
     inp.addEventListener('paste', function (e) {
@@ -140,6 +188,10 @@
       });
       var next = Math.min(data.length, 5);
       if (otpInputs[next]) otpInputs[next].focus();
+      if (data.length >= 6) {
+        var vBtn = document.getElementById('verifyBtn');
+        if (vBtn) vBtn.click();
+      }
     });
   });
 
@@ -240,15 +292,22 @@
   // ── Initialize Supabase (client-side) ──
   function initSupabase() {
     if (!config.hasAuth) return;
-    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-      var url = window._SUPABASE_URL || '';
-      var anonKey = window._SUPABASE_ANON_KEY || '';
+    if (!supabase && typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+      var url = window._SUPABASE_URL || DEFAULT_SB_URL;
+      var anonKey = window._SUPABASE_ANON_KEY || DEFAULT_SB_ANON;
       if (url && anonKey) {
-        supabase = window.supabase.createClient(url, anonKey);
+        try {
+          supabase = window.supabase.createClient(url, anonKey, {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              detectSessionInUrl: true
+            }
+          });
+        } catch (e) {
+          console.warn('[auth] Client init error:', e);
+        }
       }
-    }
-    if (!supabase) {
-      console.info('[auth] Supabase client not initialized — add window._SUPABASE_URL and window._SUPABASE_ANON_KEY');
     }
   }
 
@@ -510,15 +569,29 @@
   // ── Google OAuth ──
   function signInWithGoogle() {
     if (!supabase) { toast('Supabase not configured.', 'error'); return; }
+    var targetRoomId = sessionStorage.getItem('intended_room') || '';
+    var redirectTarget = window.location.origin + '/auth.html';
+    if (targetRoomId) {
+      redirectTarget += '?room=' + encodeURIComponent(targetRoomId);
+    }
     supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/auth.html' }
+      options: {
+        redirectTo: redirectTarget,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent'
+        }
+      }
     }).then(function (res) {
+      if (res && res.data && res.data.url) {
+        window.location.href = res.data.url;
+      }
       if (res && res.error) {
-        toast('Google login requires Google Cloud setup in Supabase. Please use Email/Password or Guest mode!', 'error', 6000);
+        toast('Google login error: ' + res.error.message, 'error', 6000);
       }
     }).catch(function (err) {
-      toast('Google login requires Google Cloud setup in Supabase. Please use Email/Password or Guest mode!', 'error', 6000);
+      toast('Google login failed: ' + (err.message || err), 'error', 6000);
     });
   }
 
@@ -527,10 +600,84 @@
   var googleSignupBtn = document.getElementById('signupGoogleBtn');
   if (googleSignupBtn) googleSignupBtn.addEventListener('click', signInWithGoogle);
 
-  // ── Load config ──
-  var DEFAULT_SB_URL = 'https://ianklqisifysvaquqcbs.supabase.co';
-  var DEFAULT_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbmtscWlzaWZ5c3ZhcXVxY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDY5MjIsImV4cCI6MjEwNzgyMjkyMn0.zI3s6Bq6eV0WcLOA-hj2JApK9jzunv107a3R9Ql4TfE';
+  // ── OAuth Callback Handler ──
+  function handleOAuthCallback() {
+    if (oauthAccessToken) {
+      var expiresIn = parseInt(hashParams.get('expires_in') || '3600', 10);
+      var tokenType = hashParams.get('token_type') || 'bearer';
+      var tempSession = {
+        access_token: oauthAccessToken,
+        refresh_token: oauthRefreshToken || '',
+        expires_in: expiresIn,
+        token_type: tokenType,
+        expires_at: Math.floor(Date.now() / 1000) + expiresIn
+      };
+      try {
+        localStorage.setItem('supabase_session', JSON.stringify(tempSession));
+      } catch (e) {}
 
+      if (supabase && supabase.auth && supabase.auth.setSession) {
+        supabase.auth.setSession({
+          access_token: oauthAccessToken,
+          refresh_token: oauthRefreshToken || ''
+        }).then(function (res) {
+          if (res.data && res.data.session) {
+            try {
+              localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
+            } catch (e) {}
+          }
+          toast('Signed in with Google!', 'success', 2000);
+          setTimeout(redirectAfterAuth, 400);
+        }).catch(function () {
+          fetchUserAndRedirect(oauthAccessToken, tempSession);
+        });
+      } else {
+        fetchUserAndRedirect(oauthAccessToken, tempSession);
+      }
+    } else if (oauthCode && supabase && supabase.auth && supabase.auth.exchangeCodeForSession) {
+      supabase.auth.exchangeCodeForSession(oauthCode)
+        .then(function (res) {
+          if (res.data && res.data.session) {
+            try {
+              localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
+            } catch (e) {}
+            toast('Signed in with Google!', 'success', 2000);
+            setTimeout(redirectAfterAuth, 400);
+          } else if (res.error) {
+            toast('Google OAuth failed: ' + res.error.message, 'error', 8000);
+          }
+        })
+        .catch(function (err) {
+          toast('Google OAuth error: ' + (err.message || err), 'error', 8000);
+        });
+    }
+  }
+
+  function fetchUserAndRedirect(token, baseSession) {
+    fetch(DEFAULT_SB_URL + '/auth/v1/user', {
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'apikey': DEFAULT_SB_ANON
+      }
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (userData) {
+      if (userData && (userData.id || userData.email)) {
+        baseSession.user = userData;
+        try {
+          localStorage.setItem('supabase_session', JSON.stringify(baseSession));
+        } catch (e) {}
+      }
+      toast('Signed in with Google!', 'success', 2000);
+      setTimeout(redirectAfterAuth, 400);
+    })
+    .catch(function () {
+      toast('Signed in with Google!', 'success', 2000);
+      setTimeout(redirectAfterAuth, 400);
+    });
+  }
+
+  // ── Sync Config from Server ──
   fetch('/api/config')
     .then(function (r) { return r.json(); })
     .then(function (data) {
@@ -546,63 +693,75 @@
         window._SUPABASE_URL = sbUrl;
         window._SUPABASE_ANON_KEY = sbAnon;
         config.hasAuth = true;
-
         initSupabase();
-        if (supabase) {
-          supabase.auth.onAuthStateChange(function (event, session) {
-            if (session) {
-              localStorage.setItem('supabase_session', JSON.stringify(session));
-              if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-                toast('Signed in successfully!', 'success', 2000);
-                setTimeout(redirectAfterAuth, 500);
-              }
-            }
-          });
-          supabase.auth.getSession().then(function (res) {
-            if (res.data && res.data.session) {
-              localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
-              redirectAfterAuth();
-            }
-          });
-          if (window.location.hash.indexOf('newpass') !== -1 ||
-              window.location.hash.indexOf('type=recovery') !== -1) {
-            showView('newpass');
-          }
-        }
       }
     })
     .catch(function () {
       if (devNotice) devNotice.style.display = 'none';
-      window._SUPABASE_URL = DEFAULT_SB_URL;
-      window._SUPABASE_ANON_KEY = DEFAULT_SB_ANON;
       config.hasAuth = true;
       initSupabase();
     });
 
-  // ── Initial view from hash ──
-  var hash = window.location.hash.replace('#', '');
-  if (hash === 'signup') {
+  // ── Auth state listener & Session detection ──
+  if (supabase && supabase.auth) {
+    supabase.auth.onAuthStateChange(function (event, session) {
+      if (session) {
+        try {
+          localStorage.setItem('supabase_session', JSON.stringify(session));
+        } catch (e) {}
+        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+          toast('Signed in successfully!', 'success', 2000);
+          setTimeout(redirectAfterAuth, 400);
+        }
+      }
+    });
+
+    if (!oauthError && !isOAuthReturn) {
+      supabase.auth.getSession().then(function (res) {
+        if (res.data && res.data.session) {
+          try {
+            localStorage.setItem('supabase_session', JSON.stringify(res.data.session));
+          } catch (e) {}
+          if (targetRoom || rawHashStr.indexOf('room') !== -1) {
+            redirectAfterAuth();
+          }
+        }
+      });
+    }
+  }
+
+  // ── Initial view setup ──
+  if (oauthError) {
+    var errorMsg = decodeURIComponent(oauthError.replace(/\+/g, ' '));
+    var hint = '';
+    if (errorMsg.indexOf('Error getting user profile') !== -1 || errorMsg.indexOf('external provider') !== -1) {
+      hint = ' (Check Supabase Auth -> Providers -> Google Client ID/Secret)';
+    } else if (errorMsg.indexOf('redirect_uri_mismatch') !== -1) {
+      hint = ' (Add Supabase callback URL in Google Cloud Console)';
+    }
+    showView('login');
+    setTimeout(function () {
+      toast('Google Sign-In Error: ' + errorMsg + hint, 'error', 10000);
+    }, 150);
+    try {
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch (e) {}
+  } else if (isOAuthReturn) {
+    showView('login');
+    toast('Signing in with Google…', 'info', 3000);
+    handleOAuthCallback();
+  } else if (rawHashStr === 'signup') {
     showView('signup');
     if (tabs) {
       tabs.querySelectorAll('.tab-btn').forEach(function (b) {
         b.classList.toggle('active', b.dataset.tab === 'signup');
       });
     }
-  } else if (hash === 'forgot') {
+  } else if (rawHashStr === 'forgot') {
     showView('forgot');
+  } else if (rawHashStr.indexOf('newpass') !== -1 || rawHashStr.indexOf('type=recovery') !== -1) {
+    showView('newpass');
   } else {
     showView('login');
-  }
-
-  // Preserve intended room from hash or query parameter
-  var rawHashStr = (window.location.hash || '').replace(/^#/, '');
-  var hashParams = new URLSearchParams(rawHashStr);
-  var queryParams = new URLSearchParams(window.location.search);
-  var targetRoom = hashParams.get('room') || queryParams.get('room');
-  if (!targetRoom && rawHashStr && /^[a-zA-Z0-9-]{1,64}$/.test(rawHashStr) && rawHashStr.indexOf('=') === -1) {
-    targetRoom = rawHashStr;
-  }
-  if (targetRoom) {
-    sessionStorage.setItem('intended_room', targetRoom);
   }
 })();
