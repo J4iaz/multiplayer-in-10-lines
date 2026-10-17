@@ -2,11 +2,55 @@
 (function () {
   'use strict';
 
-  // If a room parameter/hash is present, remember it
+  // If an OAuth access token or code is present, capture session and redirect
   var rawHash = (window.location.hash || '').replace(/^#/, '');
-  var search = window.location.search || '';
+  var search = (window.location.search || '').replace(/^\?/, '');
   var hp = new URLSearchParams(rawHash);
   var sp = new URLSearchParams(search);
+
+  var oauthToken = hp.get('access_token') || sp.get('access_token');
+  if (oauthToken) {
+    var userObj = null;
+    try {
+      var parts = oauthToken.split('.');
+      if (parts.length === 3) {
+        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        var json = decodeURIComponent(atob(base64).split('').map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        var p = JSON.parse(json);
+        if (p && (p.sub || p.email)) {
+          userObj = {
+            id: p.sub || p.id,
+            email: p.email || '',
+            user_metadata: p.user_metadata || {
+              full_name: (p.user_metadata && (p.user_metadata.full_name || p.user_metadata.name)) || (p.email ? p.email.split('@')[0] : 'Member'),
+              picture: p.user_metadata && (p.user_metadata.picture || p.user_metadata.avatar_url)
+            }
+          };
+        }
+      }
+    } catch (e) {}
+
+    var capturedSession = {
+      access_token: oauthToken,
+      refresh_token: hp.get('refresh_token') || sp.get('refresh_token') || '',
+      token_type: hp.get('token_type') || sp.get('token_type') || 'bearer',
+      expires_in: parseInt(hp.get('expires_in') || sp.get('expires_in') || '3600', 10),
+      user: userObj
+    };
+    try {
+      localStorage.setItem('supabase_session', JSON.stringify(capturedSession));
+    } catch (e) {}
+
+    var targetRoomFromOAuth = hp.get('room') || sp.get('room') || sessionStorage.getItem('intended_room') || '';
+    sessionStorage.removeItem('intended_room');
+    window.location.replace('/app.html' + (targetRoomFromOAuth ? '#room=' + encodeURIComponent(targetRoomFromOAuth) : ''));
+    return;
+  }
+
+  // If a room parameter/hash is present, remember it
   var intendedRoom = hp.get('room') || sp.get('room');
   if (!intendedRoom && rawHash && /^[a-zA-Z0-9-]{1,64}$/.test(rawHash) && rawHash.indexOf('=') === -1) {
     intendedRoom = rawHash;

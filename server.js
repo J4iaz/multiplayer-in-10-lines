@@ -299,12 +299,14 @@ function createServer(options = {}) {
         return;
       }
       const user = authResult.user;
-      const userName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.display_name)) || sanitizeName(msg.name);
+      const userName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.display_name || user.user_metadata.name)) || sanitizeName(msg.name);
       ws.meta.user = {
         id: user.id,
         email: user.email,
         name: userName,
         role: 'editor',
+        picture: (user.user_metadata && (user.user_metadata.picture || user.user_metadata.avatar_url)) || null,
+        isGuest: false,
       };
       ws.meta.name = ws.meta.user.name;
     } else {

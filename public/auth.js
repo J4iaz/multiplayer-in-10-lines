@@ -219,7 +219,7 @@
 
   // ── Redirect after auth ──
   function redirectAfterAuth() {
-    var room = sessionStorage.getItem('intended_room') || '';
+    var room = sessionStorage.getItem('intended_room') || targetRoom || '';
     sessionStorage.removeItem('intended_room');
     var dest = '/app.html';
     if (room) dest = '/app.html#room=' + encodeURIComponent(room);
@@ -569,7 +569,7 @@
   // ── Google OAuth ──
   function signInWithGoogle() {
     if (!supabase) { toast('Supabase not configured.', 'error'); return; }
-    var targetRoomId = sessionStorage.getItem('intended_room') || '';
+    var targetRoomId = sessionStorage.getItem('intended_room') || targetRoom || '';
     var redirectTarget = window.location.origin + '/auth.html';
     if (targetRoomId) {
       redirectTarget += '?room=' + encodeURIComponent(targetRoomId);
@@ -612,11 +612,13 @@
         }).join(''));
         var p = JSON.parse(json);
         if (p && (p.sub || p.email)) {
+          var meta = p.user_metadata || {};
           return {
             id: p.sub || p.id,
             email: p.email || '',
-            user_metadata: p.user_metadata || {
-              full_name: (p.user_metadata && (p.user_metadata.full_name || p.user_metadata.name)) || (p.email ? p.email.split('@')[0] : 'Member')
+            user_metadata: {
+              full_name: meta.full_name || meta.name || meta.display_name || (p.email ? p.email.split('@')[0] : 'Member'),
+              picture: meta.picture || meta.avatar_url || null
             }
           };
         }

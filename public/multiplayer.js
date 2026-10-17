@@ -532,6 +532,9 @@
           me.color = msg.color;
           if (msg.role) me.role = msg.role;
           if (msg.user) me.user = msg.user;
+          emitter.emit('welcome', function () {
+            return [msg];
+          });
           return;
         case 'role_change':
           if (msg.role) {
