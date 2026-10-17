@@ -137,6 +137,12 @@ test('Avatar update reflects in presence', async () => {
   const err = await waitForMessage(a.ws, byType('error'));
   assert.equal(err.code, 'invalid_avatar');
 
+  // Clearing avatar (null) removes it from presence
+  a.ws.send(JSON.stringify({ type: 'set_avatar', avatar: null }));
+  const presenceCleared = await waitForMessage(b.ws, (m) => m.type === 'presence' && m.users.some((u) => u.id === a.welcome.clientId && !u.avatar));
+  const userACleared = presenceCleared.users.find((u) => u.id === a.welcome.clientId);
+  assert.equal(userACleared.avatar, undefined);
+
   a.ws.close();
   b.ws.close();
 });

@@ -798,6 +798,19 @@ body {
     0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
+.btn-danger-glass {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  transition: all 0.2s ease;
+}
+.btn-danger-glass:hover {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.7);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+}
+
 /* Icon-only square button */
 .btn-icon-glass {
   width: 34px;

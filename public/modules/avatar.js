@@ -206,7 +206,15 @@
       var saved = localStorage.getItem('sticky_avatar_config');
       if (saved) return JSON.parse(saved);
     } catch (e) {}
-    return Object.assign({}, DEFAULT_CONFIG);
+    return null;
+  }
+
+  function hasStoredConfig() {
+    try {
+      return !!localStorage.getItem('sticky_avatar_config');
+    } catch (e) {
+      return false;
+    }
   }
 
   function saveConfig(cfg) {
@@ -217,16 +225,30 @@
 
   function initAvatar(room, options) {
     var opts = options || {};
-    var currentConfig = getStoredConfig();
+    var currentConfig = getStoredConfig() || Object.assign({}, DEFAULT_CONFIG);
 
     var modalEl = document.getElementById(opts.modalId || 'avatar-modal');
     var openBtn = document.getElementById(opts.openBtnId || 'avatar-btn');
     var closeBtn = document.getElementById(opts.closeBtnId || 'avatar-modal-close');
     var saveBtn = document.getElementById(opts.saveBtnId || 'avatar-save-btn');
+    var resetBtn = document.getElementById(opts.resetBtnId || 'avatar-reset-btn');
     var randomBtn = document.getElementById(opts.randomBtnId || 'avatar-random-btn');
     var previewWrap = document.getElementById(opts.previewWrapId || 'avatar-preview-wrap');
     var quickExprWrap = document.getElementById(opts.quickExprWrapId || 'quick-expressions-bar');
     var miniPreview = document.getElementById(opts.miniPreviewId || 'my-avatar-preview');
+
+    function applyAvatarToTopbar(svg) {
+      var topbarBadge = document.getElementById('user-avatar-badge');
+      if (!topbarBadge) return;
+      if (svg) {
+        topbarBadge.innerHTML = svg;
+      } else {
+        var nameEl = document.getElementById('user-name-display');
+        var uName = (nameEl && nameEl.textContent) || 'User';
+        topbarBadge.innerHTML = '';
+        topbarBadge.textContent = uName.slice(0, 2).toUpperCase();
+      }
+    }
 
     function updatePreview() {
       var svg = generateAvatarSvg(currentConfig);
@@ -235,10 +257,6 @@
       }
       if (miniPreview) {
         miniPreview.innerHTML = svg;
-      }
-      var topbarBadge = document.getElementById('user-avatar-badge');
-      if (topbarBadge) {
-        topbarBadge.innerHTML = svg;
       }
     }
 
@@ -265,10 +283,12 @@
       if (room && room.setExpression) {
         room.setExpression(expr);
       }
-      // Re-broadcast updated avatar with expression if desired
-      var svg = generateAvatarSvg(currentConfig);
-      if (room && room.setAvatar) {
-        room.setAvatar(svg);
+      if (hasStoredConfig()) {
+        var svg = generateAvatarSvg(currentConfig);
+        if (room && room.setAvatar) {
+          room.setAvatar(svg);
+        }
+        applyAvatarToTopbar(svg);
       }
     }
 
@@ -451,6 +471,24 @@
     if (closeBtn) closeBtn.addEventListener('click', closeModal);
     if (randomBtn) randomBtn.addEventListener('click', randomize);
 
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        try {
+          localStorage.removeItem('sticky_avatar_config');
+        } catch (e) {}
+        currentConfig = Object.assign({}, DEFAULT_CONFIG);
+        if (room && room.setAvatar) {
+          room.setAvatar(null);
+        }
+        applyAvatarToTopbar(null);
+        updatePreview();
+        if (window.toast) {
+          window.toast('Avatar removed. Initials restored.');
+        }
+        closeModal();
+      });
+    }
+
     if (saveBtn) {
       saveBtn.addEventListener('click', function () {
         saveConfig(currentConfig);
@@ -458,29 +496,36 @@
         if (room && room.setAvatar) {
           room.setAvatar(svg);
         }
+        applyAvatarToTopbar(svg);
         updatePreview();
+        if (window.toast) {
+          window.toast('Custom avatar saved!');
+        }
         closeModal();
       });
     }
 
-    // Initialize initial avatar on connect
-    var initialSvg = generateAvatarSvg(currentConfig);
+    // Initialize preview and quick expressions
     updatePreview();
     setupQuickExpressions();
 
-    if (room) {
-      // Sync avatar when room connects
-      var sendAvatarOnLive = function () {
-        if (room.status === 'connected' && room.setAvatar) {
-          room.setAvatar(initialSvg);
+    // Only broadcast/apply custom avatar if the user explicitly configured and saved one
+    if (hasStoredConfig()) {
+      var initialSvg = generateAvatarSvg(currentConfig);
+      applyAvatarToTopbar(initialSvg);
+      if (room) {
+        var sendAvatarOnLive = function () {
+          if (room.status === 'connected' && room.setAvatar) {
+            room.setAvatar(initialSvg);
+          }
+        };
+        if (room.status === 'connected') {
+          sendAvatarOnLive();
+        } else if (room.onStatusChange) {
+          room.onStatusChange(function (s) {
+            if (s.status === 'connected') sendAvatarOnLive();
+          });
         }
-      };
-      if (room.status === 'connected') {
-        sendAvatarOnLive();
-      } else if (room.onStatusChange) {
-        room.onStatusChange(function (s) {
-          if (s.status === 'connected') sendAvatarOnLive();
-        });
       }
     }
 

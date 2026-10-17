@@ -887,20 +887,21 @@
   Whiteboard.prototype.confirmClearBoard = function () {
     if (!this.room) return;
     var state = this.room.getState();
-    var objKeys = [];
+    var keysToClear = [];
     Object.keys(state).forEach(function (k) {
-      if (k.indexOf('obj:') === 0 && state[k]) objKeys.push(k);
+      if ((k.indexOf('obj:') === 0 || k.indexOf('note:') === 0 || k.indexOf('pos:') === 0) && state[k]) {
+        keysToClear.push(k);
+      }
     });
 
-    if (objKeys.length === 0) {
-      this.onToast('Whiteboard is already clean');
+    if (keysToClear.length === 0) {
+      this.onToast('Board is already clean');
       return;
     }
 
-    var self = this;
     var items = [];
     var patch = {};
-    objKeys.forEach(function (k) {
+    keysToClear.forEach(function (k) {
       items.push({ id: k, data: state[k] });
       patch[k] = null;
     });
@@ -910,7 +911,7 @@
       type: 'clear',
       items: items,
     });
-    this.onToast('Cleared ' + items.length + ' drawing' + (items.length === 1 ? '' : 's') + ' (Ctrl+Z to undo)');
+    this.onToast('Board cleared (' + keysToClear.length + ' item' + (keysToClear.length === 1 ? '' : 's') + ' removed, Ctrl+Z to undo)');
     this.render();
   };
 

@@ -102,12 +102,15 @@
     userSignOutNav.addEventListener('click', function () {
       try {
         localStorage.removeItem('supabase_session');
+        localStorage.removeItem('nexusmeet_guest_name');
+        localStorage.removeItem('sticky_avatar_config');
         for (var i = localStorage.length - 1; i >= 0; i--) {
           var k = localStorage.key(i);
-          if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+          if (k && (k.startsWith('sb-') || k.includes('auth-token') || k.startsWith('room_pwd_') || k.startsWith('sticky_'))) {
             localStorage.removeItem(k);
           }
         }
+        sessionStorage.clear();
       } catch (e) {}
       window.location.reload();
     });

@@ -149,6 +149,7 @@
           openBtnId: 'btn-toggle-avatar',
           closeBtnId: 'avatar-modal-close',
           saveBtnId: 'avatar-save-btn',
+          resetBtnId: 'avatar-reset-btn',
           randomBtnId: 'avatar-random-btn',
           previewWrapId: 'avatar-preview-wrap',
           controlsBodyId: 'avatar-controls-body',
@@ -1283,15 +1284,23 @@
     signOutBtn.addEventListener('click', function () {
       try {
         localStorage.removeItem('supabase_session');
+        localStorage.removeItem('nexusmeet_guest_name');
+        localStorage.removeItem('sticky_avatar_config');
         for (var i = localStorage.length - 1; i >= 0; i--) {
           var k = localStorage.key(i);
-          if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+          if (k && (k.startsWith('sb-') || k.includes('auth-token') || k.startsWith('room_pwd_') || k.startsWith('sticky_'))) {
             localStorage.removeItem(k);
           }
         }
+        sessionStorage.clear();
       } catch (e) {}
+      if (room && room.disconnect) {
+        try { room.disconnect(); } catch (e) {}
+      }
       toast('Signed out');
-      setTimeout(function () { location.reload(); }, 250);
+      setTimeout(function () {
+        window.location.href = '/auth.html';
+      }, 200);
     });
   }
 

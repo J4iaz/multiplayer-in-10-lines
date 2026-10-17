@@ -90,7 +90,7 @@ function createServer(options = {}) {
       if (!error && data && data.session) {
         return res.json({ session: data.session, user: data.user });
       }
-    } catch (e) {}
+    } catch {}
 
     // 2. Direct hardcoded fallback for Kartik
     if ((email === 'kartik89a7@gmail.com' || email === 'kartik89a7') && password === 'Kartik@2009') {
@@ -594,7 +594,12 @@ function createServer(options = {}) {
   function handleSetAvatar(ws, msg) {
     const room = currentRoom(ws);
     if (!room) return;
-    if (!msg || typeof msg.avatar !== 'string' || Buffer.byteLength(msg.avatar, 'utf8') > LIMITS.avatarBytesMax) {
+    if (!msg || msg.avatar === null || msg.avatar === '' || msg.avatar === false) {
+      ws.meta.avatar = null;
+      broadcastPresence(room);
+      return;
+    }
+    if (typeof msg.avatar !== 'string' || Buffer.byteLength(msg.avatar, 'utf8') > LIMITS.avatarBytesMax) {
       send(ws, { type: 'error', code: 'invalid_avatar', message: 'Avatar must be a string up to 2KB.' });
       return;
     }
