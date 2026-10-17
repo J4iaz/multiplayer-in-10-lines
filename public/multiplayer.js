@@ -615,6 +615,9 @@
           emitter.emit('error', function () {
             return [err];
           });
+          if (msg.code === 'auth_expired' || msg.code === 'auth_required') {
+            token = null;
+          }
           if (msg.code === 'invalid_patch' || msg.code === 'rate_limited') {
             // Our optimistic write was rejected: resync with the server's truth.
             send({ type: 'sync' });
@@ -686,7 +689,9 @@
       emitPresence();
 
       if (closedByUser) return setStatus('disconnected');
-      if (FATAL_CLOSE_CODES[code]) {
+      if (code === 4401) {
+        token = null;
+      } else if (FATAL_CLOSE_CODES[code]) {
         closedByUser = true;
         return setStatus('disconnected');
       }

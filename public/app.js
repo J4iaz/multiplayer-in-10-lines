@@ -26,6 +26,75 @@
   var emptyAddNote = $('empty-add-note');
   var emptyInvite = $('empty-invite');
 
+  var userProfileChip = $('user-profile-chip');
+  var userAvatarBadge = $('user-avatar-badge');
+  var userNameDisplay = $('user-name-display');
+  var signOutBtn = $('sign-out-btn');
+  var signInBtn = $('sign-in-btn');
+  var authModal = $('auth-modal');
+  var authModalClose = $('auth-modal-close');
+  var authGoPageBtn = $('auth-go-page-btn');
+
+  function getUserFromToken(token) {
+    if (!token || typeof token !== 'string') return null;
+    var parts = token.split('.');
+    if (parts.length === 3) {
+      try {
+        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        var json = decodeURIComponent(atob(base64).split('').map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        var p = JSON.parse(json);
+        if (p && (p.sub || p.email)) {
+          return {
+            id: p.sub || p.id,
+            email: p.email || '',
+            user_metadata: p.user_metadata || {
+              full_name: (p.user_metadata && (p.user_metadata.full_name || p.user_metadata.name)) || (p.email ? p.email.split('@')[0] : 'Member'),
+              picture: p.user_metadata && (p.user_metadata.picture || p.user_metadata.avatar_url)
+            }
+          };
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
+  function updateAuthUI() {
+    if (!session) session = getStoredSession();
+    var hasValidSession = Boolean(session && (session.access_token || session.user));
+    if (hasValidSession) {
+      var u = (session && session.user) || getUserFromToken(session ? session.access_token : null) || {};
+      var name = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.name || u.user_metadata.display_name)) ||
+                 (u.email ? u.email.split('@')[0] : '') ||
+                 (nameInput && nameInput.value ? nameInput.value : '') ||
+                 'Member';
+
+      if (userProfileChip) {
+        userProfileChip.style.display = 'flex';
+        if (userNameDisplay) userNameDisplay.textContent = name;
+        if (userAvatarBadge) {
+          var picture = u.user_metadata && (u.user_metadata.picture || u.user_metadata.avatar_url);
+          if (picture) {
+            userAvatarBadge.innerHTML = '<img src="' + picture + '" alt="' + name + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />';
+          } else {
+            userAvatarBadge.textContent = name.slice(0, 2).toUpperCase();
+          }
+        }
+      }
+      if (signInBtn) {
+        signInBtn.style.display = 'none';
+      }
+      if (nameInput && (!nameInput.value || nameInput.value.startsWith('Guest'))) {
+        nameInput.value = name;
+      }
+    } else {
+      if (userProfileChip) userProfileChip.style.display = 'none';
+      if (signInBtn) signInBtn.style.display = '';
+    }
+  }
+
   function getStoredSession() {
     try {
       var rawHash = (location.hash || '').replace(/^#/, '');
@@ -38,7 +107,8 @@
           access_token: hashToken,
           refresh_token: hashParams.get('refresh_token') || '',
           token_type: hashParams.get('token_type') || 'bearer',
-          expires_in: parseInt(hashParams.get('expires_in') || '3600', 10)
+          expires_in: parseInt(hashParams.get('expires_in') || '3600', 10),
+          user: getUserFromToken(hashToken)
         };
         try {
           localStorage.setItem('supabase_session', JSON.stringify(oauthSession));
@@ -56,7 +126,11 @@
       if (custom) {
         var parsed = JSON.parse(custom);
         if (parsed && (parsed.access_token || (parsed.session && parsed.session.access_token))) {
-          return parsed.session || parsed;
+          var sess = parsed.session || parsed;
+          if (!sess.user && sess.access_token) {
+            sess.user = getUserFromToken(sess.access_token);
+          }
+          return sess;
         }
       }
       for (var i = 0; i < localStorage.length; i++) {
@@ -66,7 +140,11 @@
           if (val) {
             var p = JSON.parse(val);
             if (p && (p.access_token || (p.session && p.session.access_token))) {
-              return p.session || p;
+              var sbSess = p.session || p;
+              if (!sbSess.user && sbSess.access_token) {
+                sbSess.user = getUserFromToken(sbSess.access_token);
+              }
+              return sbSess;
             }
           }
         }
@@ -78,9 +156,12 @@
   var session = getStoredSession();
   var joinOptions = {};
   if (session && session.access_token) {
+    if (!session.user) {
+      session.user = getUserFromToken(session.access_token);
+    }
     joinOptions.token = session.access_token;
     if (session.user) {
-      var userDisplayName = (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.display_name)) || (session.user.email ? session.user.email.split('@')[0] : '');
+      var userDisplayName = (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.name || session.user.user_metadata.display_name)) || (session.user.email ? session.user.email.split('@')[0] : '');
       if (userDisplayName) joinOptions.name = userDisplayName;
     }
     if (!session.user || !session.user.id) {
@@ -95,12 +176,12 @@
         if (userData && (userData.id || userData.email)) {
           session.user = userData;
           try { localStorage.setItem('supabase_session', JSON.stringify(session)); } catch (e) {}
-          var uName = (userData.user_metadata && (userData.user_metadata.full_name || userData.user_metadata.display_name)) || (userData.email ? userData.email.split('@')[0] : '');
+          var uName = (userData.user_metadata && (userData.user_metadata.full_name || userData.user_metadata.name || userData.user_metadata.display_name)) || (userData.email ? userData.email.split('@')[0] : '');
           if (uName) {
             if (nameInput) nameInput.value = uName;
             if (room && room.setName) room.setName(uName);
           }
-          if (typeof updateAuthUI === 'function') updateAuthUI();
+          updateAuthUI();
         }
       })
       .catch(function () {});
@@ -113,6 +194,9 @@
     }
     if (guestName) joinOptions.name = guestName;
   }
+
+  // Update UI immediately on script load
+  updateAuthUI();
 
   // Pre-fill password from sessionStorage if available
   var curRoomId = '';
@@ -273,8 +357,23 @@
       }
       render();
     });
+    if (room.on) {
+      room.on('welcome', function (msg) {
+        if (msg && msg.user && !msg.user.isGuest) {
+          if (!session) session = {};
+          session.user = msg.user;
+          try { localStorage.setItem('supabase_session', JSON.stringify(session)); } catch (e) {}
+          updateAuthUI();
+        }
+      });
+    }
     room.onError(function (err) {
-      if (err.code === 'bad_password') {
+      if (err.code === 'auth_expired' || err.code === 'auth_required') {
+        try { localStorage.removeItem('supabase_session'); } catch (e) {}
+        session = null;
+        updateAuthUI();
+        toast('Session expired. Continuing as guest…', 'warn', 4000);
+      } else if (err.code === 'bad_password') {
         var pwdModal = $('password-modal');
         if (pwdModal) {
           pwdModal.removeAttribute('hidden');
@@ -1300,31 +1399,7 @@
     });
   }
 
-  var userProfileChip = $('user-profile-chip');
-  var userAvatarBadge = $('user-avatar-badge');
-  var userNameDisplay = $('user-name-display');
-  var signOutBtn = $('sign-out-btn');
-  var signInBtn = $('sign-in-btn');
-  var authModal = $('auth-modal');
-  var authModalClose = $('auth-modal-close');
-  var authGoPageBtn = $('auth-go-page-btn');
 
-  function updateAuthUI() {
-    if (session && session.user) {
-      var u = session.user;
-      var name = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.display_name)) || u.email || 'Member';
-      if (userProfileChip) {
-        userProfileChip.style.display = 'flex';
-        if (userNameDisplay) userNameDisplay.textContent = name;
-        if (userAvatarBadge) userAvatarBadge.textContent = name.slice(0, 2).toUpperCase();
-      }
-      if (signInBtn) signInBtn.style.display = 'none';
-      if (nameInput) nameInput.value = name;
-    } else {
-      if (userProfileChip) userProfileChip.style.display = 'none';
-      if (signInBtn) signInBtn.style.display = '';
-    }
-  }
 
   if (signOutBtn) {
     signOutBtn.addEventListener('click', function () {

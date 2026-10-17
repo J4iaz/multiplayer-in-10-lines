@@ -600,17 +600,44 @@
   var googleSignupBtn = document.getElementById('signupGoogleBtn');
   if (googleSignupBtn) googleSignupBtn.addEventListener('click', signInWithGoogle);
 
+  function getUserFromToken(token) {
+    if (!token || typeof token !== 'string') return null;
+    var parts = token.split('.');
+    if (parts.length === 3) {
+      try {
+        var base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (base64.length % 4) base64 += '=';
+        var json = decodeURIComponent(atob(base64).split('').map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        var p = JSON.parse(json);
+        if (p && (p.sub || p.email)) {
+          return {
+            id: p.sub || p.id,
+            email: p.email || '',
+            user_metadata: p.user_metadata || {
+              full_name: (p.user_metadata && (p.user_metadata.full_name || p.user_metadata.name)) || (p.email ? p.email.split('@')[0] : 'Member')
+            }
+          };
+        }
+      } catch (e) {}
+    }
+    return null;
+  }
+
   // ── OAuth Callback Handler ──
   function handleOAuthCallback() {
     if (oauthAccessToken) {
       var expiresIn = parseInt(hashParams.get('expires_in') || '3600', 10);
       var tokenType = hashParams.get('token_type') || 'bearer';
+      var userFromJwt = getUserFromToken(oauthAccessToken);
       var tempSession = {
         access_token: oauthAccessToken,
         refresh_token: oauthRefreshToken || '',
         expires_in: expiresIn,
         token_type: tokenType,
-        expires_at: Math.floor(Date.now() / 1000) + expiresIn
+        expires_at: Math.floor(Date.now() / 1000) + expiresIn,
+        user: userFromJwt
       };
       try {
         localStorage.setItem('supabase_session', JSON.stringify(tempSession));
