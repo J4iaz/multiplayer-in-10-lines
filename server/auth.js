@@ -12,8 +12,11 @@ function init(customClient) {
     supabaseAdmin = customClient;
     return;
   }
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const isTest = process.env.NODE_ENV === 'test';
+  const defaultUrl = isTest ? '' : 'https://ianklqisifysvaquqcbs.supabase.co';
+  const defaultKey = isTest ? '' : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbmtscWlzaWZ5c3ZhcXVxY2JzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MjI0NjkyMiwiZXhwIjoyMTA3ODIyOTIyfQ.gUuSz5jpprdyZj8B9ArpNaTnUf877TUcB4Xld1reKrs';
+  const url = process.env.SUPABASE_URL || defaultUrl;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || defaultKey;
   if (url && key) {
     try {
       const { createClient } = require('@supabase/supabase-js');

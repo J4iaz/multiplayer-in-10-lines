@@ -69,15 +69,24 @@
   }
 
   // Pre-fill password from sessionStorage if available
+  var curRoomId = '';
   try {
     var rawHash = location.hash.replace(/^#/, '');
     var hashRoom = (location.hash.match(/room=([A-Za-z0-9-]+)/) || [])[1];
-    var curRoomId = hashRoom || (rawHash && rawHash.indexOf('=') === -1 ? rawHash : '');
+    var searchRoom = (location.search.match(/room=([A-Za-z0-9-]+)/) || [])[1];
+    curRoomId = hashRoom || searchRoom || (rawHash && rawHash.indexOf('=') === -1 ? rawHash : '');
     if (curRoomId) {
       var savedPwd = sessionStorage.getItem('room_pwd_' + curRoomId);
       if (savedPwd) joinOptions.password = savedPwd;
     }
   } catch (e) {}
+
+  // If no room is specified in URL, this is an attempt to create a new room.
+  // Enforce authentication: bina sign in ke new room create na ho!
+  if (!curRoomId && (!session || !session.access_token)) {
+    window.location.replace('/auth.html');
+    return;
+  }
 
   // ---- Multiplayer: this is the whole integration ----
   var room = Multiplayer.join(joinOptions);
@@ -777,7 +786,12 @@
 
   function boardPoint(event) {
     var rect = board.getBoundingClientRect();
-    return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+    var scaleX = board.offsetWidth ? (rect.width / board.offsetWidth) : 1;
+    var scaleY = board.offsetHeight ? (rect.height / board.offsetHeight) : 1;
+    return {
+      x: (event.clientX - rect.left) / (scaleX || 1),
+      y: (event.clientY - rect.top) / (scaleY || 1),
+    };
   }
 
   // ---------- dragging ----------
@@ -950,10 +964,24 @@
     if (event.key === 'Enter') nameInput.blur();
   });
 
+  function getViewportCenterWorldPos() {
+    if (whiteboardInstance && whiteboardInstance.screenToWorld) {
+      var wrapRect = boardWrap.getBoundingClientRect();
+      var center = whiteboardInstance.screenToWorld(wrapRect.left + wrapRect.width / 2, wrapRect.top + wrapRect.height / 2);
+      return {
+        x: clamp(center.x - NOTE_W / 2 + (Math.random() * 60 - 30), 0, BOARD_W - NOTE_W),
+        y: clamp(center.y - NOTE_H / 2 + (Math.random() * 60 - 30), 0, BOARD_H - NOTE_H),
+      };
+    }
+    return {
+      x: clamp(boardWrap.scrollLeft + boardWrap.clientWidth / 2 - NOTE_W / 2 + (Math.random() * 60 - 30), 0, BOARD_W - NOTE_W),
+      y: clamp(boardWrap.scrollTop + boardWrap.clientHeight / 2 - NOTE_H / 2 + (Math.random() * 60 - 30), 0, BOARD_H - NOTE_H),
+    };
+  }
+
   $('add-note').addEventListener('click', function () {
-    var x = boardWrap.scrollLeft + boardWrap.clientWidth / 2 - NOTE_W / 2 + (Math.random() * 60 - 30);
-    var y = boardWrap.scrollTop + boardWrap.clientHeight / 2 - NOTE_H / 2 + (Math.random() * 60 - 30);
-    addNote(x, y);
+    var p = getViewportCenterWorldPos();
+    addNote(p.x, p.y);
   });
 
   // Invite Modal & Link Copy

@@ -407,20 +407,25 @@
   if (googleSignupBtn) googleSignupBtn.addEventListener('click', signInWithGoogle);
 
   // ── Load config ──
+  var DEFAULT_SB_URL = 'https://ianklqisifysvaquqcbs.supabase.co';
+  var DEFAULT_SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbmtscWlzaWZ5c3ZhcXVxY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDY5MjIsImV4cCI6MjEwNzgyMjkyMn0.zI3s6Bq6eV0WcLOA-hj2JApK9jzunv107a3R9Ql4TfE';
+
   fetch('/api/config')
     .then(function (r) { return r.json(); })
     .then(function (data) {
       config = data;
+      var sbUrl = data.supabaseUrl || DEFAULT_SB_URL;
+      var sbAnon = data.supabaseAnonKey || DEFAULT_SB_ANON;
 
-      if (!config.hasAuth) {
+      if (!config.hasAuth && !sbUrl) {
         if (devNotice) devNotice.style.display = '';
-        // If in dev mode, enable buttons so users can test or allow guest continue
         if (loginGuestBtn) loginGuestBtn.style.display = '';
       } else {
-        if (data.supabaseUrl && data.supabaseAnonKey) {
-          window._SUPABASE_URL = data.supabaseUrl;
-          window._SUPABASE_ANON_KEY = data.supabaseAnonKey;
-        }
+        if (devNotice) devNotice.style.display = 'none';
+        window._SUPABASE_URL = sbUrl;
+        window._SUPABASE_ANON_KEY = sbAnon;
+        config.hasAuth = true;
+
         initSupabase();
         if (supabase) {
           supabase.auth.onAuthStateChange(function (event, session) {
@@ -450,6 +455,11 @@
       }
     })
     .catch(function () {
+      if (devNotice) devNotice.style.display = 'none';
+      window._SUPABASE_URL = DEFAULT_SB_URL;
+      window._SUPABASE_ANON_KEY = DEFAULT_SB_ANON;
+      config.hasAuth = true;
+      initSupabase();
       if (loginGuestBtn) loginGuestBtn.style.display = '';
     });
 
@@ -468,9 +478,15 @@
     showView('login');
   }
 
-  // Preserve intended room
-  var params = new URLSearchParams(window.location.search);
-  if (params.get('room')) {
-    sessionStorage.setItem('intended_room', params.get('room'));
+  // Preserve intended room from hash or query parameter
+  var rawHashStr = (window.location.hash || '').replace(/^#/, '');
+  var hashParams = new URLSearchParams(rawHashStr);
+  var queryParams = new URLSearchParams(window.location.search);
+  var targetRoom = hashParams.get('room') || queryParams.get('room');
+  if (!targetRoom && rawHashStr && /^[a-zA-Z0-9-]{1,64}$/.test(rawHashStr) && rawHashStr.indexOf('=') === -1) {
+    targetRoom = rawHashStr;
+  }
+  if (targetRoom) {
+    sessionStorage.setItem('intended_room', targetRoom);
   }
 })();

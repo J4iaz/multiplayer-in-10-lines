@@ -3183,6 +3183,22 @@ body {
   z-index: 2500;
   font-size: 32px;
   animation: floatReaction 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.reaction-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(150, 215, 255, 0.3);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-top: 2px;
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
 }
 
 @keyframes floatReaction {

@@ -262,13 +262,21 @@
 
         // Request local media with fallback to audio-only if camera is unavailable
         try {
-          localStream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 24 } },
-          });
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            localStream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 24 } },
+            });
+          } else {
+            localStream = createDummyStream();
+          }
         } catch (mediaErr) {
           try {
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } else {
+              localStream = createDummyStream();
+            }
           } catch (audioOnlyErr) {
             // Virtual dummy stream if user has no mic/camera connected
             localStream = createDummyStream();

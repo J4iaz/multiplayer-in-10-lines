@@ -60,13 +60,19 @@ function createServer(options = {}) {
     res.json({ status: 'ok', rooms: rooms.size, clients, uptime: Math.round(process.uptime()) });
   });
 
+  const DEFAULT_SUPABASE_URL = 'https://ianklqisifysvaquqcbs.supabase.co';
+  const DEFAULT_SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhbmtscWlzaWZ5c3ZhcXVxY2JzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDY5MjIsImV4cCI6MjEwNzgyMjkyMn0.zI3s6Bq6eV0WcLOA-hj2JApK9jzunv107a3R9Ql4TfE';
+
   app.get('/api/config', (req, res) => {
+    const isTest = process.env.NODE_ENV === 'test';
+    const sbUrl = process.env.SUPABASE_URL || (isTest ? '' : DEFAULT_SUPABASE_URL);
+    const sbAnon = process.env.SUPABASE_ANON_KEY || (isTest ? '' : DEFAULT_SUPABASE_ANON);
     res.json({
-      hasAuth: !!process.env.SUPABASE_URL,
+      hasAuth: !!sbUrl,
       hasAI: !!process.env.ANTHROPIC_API_KEY,
       allowGuests: process.env.ALLOW_GUESTS !== 'false',
-      supabaseUrl: process.env.SUPABASE_URL || '',
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+      supabaseUrl: sbUrl,
+      supabaseAnonKey: sbAnon,
     });
   });
 

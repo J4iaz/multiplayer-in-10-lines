@@ -145,6 +145,11 @@
 
   // --- Create Room Handlers ---
   function createAndOpenRoom() {
+    var curSession = getStoredSession();
+    if (!curSession || !curSession.user || !curSession.access_token) {
+      openAuthModal('Sign In to Create Room', 'You must sign in or create an account to start a new collaborative room.');
+      return;
+    }
     var id = randomRoomId(8);
     saveRoom(id);
     window.location.href = '/app.html#room=' + id;
@@ -288,11 +293,15 @@
   var landingGuestForm = document.getElementById('landing-guest-form');
   var landingGuestName = document.getElementById('landing-guest-name');
 
-  function openAuthModal() {
+  function openAuthModal(title, desc) {
     if (authModal) {
       authModal.removeAttribute('hidden');
       authModal.hidden = false;
       authModal.classList.add('is-open');
+      var titleEl = document.getElementById('auth-modal-title');
+      var descEl = authModal.querySelector('.modal-desc');
+      if (title && titleEl) titleEl.textContent = title;
+      if (desc && descEl) descEl.textContent = desc;
       if (landingGuestName) {
         setTimeout(function () { landingGuestName.focus(); }, 80);
       }
@@ -315,8 +324,13 @@
       landingGuestName.focus();
       return;
     }
+    var targetRoom = sessionStorage.getItem('intended_room');
+    if (!targetRoom) {
+      alert('Sign in is required to create a new room. Guests can only join existing rooms with an invite link or room code.');
+      window.location.href = '/auth.html';
+      return;
+    }
     localStorage.setItem('nexusmeet_guest_name', name);
-    var targetRoom = sessionStorage.getItem('intended_room') || randomRoomId(8);
     saveRoom(targetRoom);
     closeAuthModal();
     window.location.href = '/app.html#room=' + encodeURIComponent(targetRoom);
