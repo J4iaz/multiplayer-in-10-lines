@@ -623,9 +623,99 @@
     });
   }
 
+  // Join Modal & Room Switcher
+  var joinModal = $('join-modal');
+  var joinCodeInput = $('join-code-input');
+  var joinRoomBtn = $('join-room-btn');
+  var joinModalClose = $('join-modal-close');
+  var joinCancelBtn = $('join-cancel-btn');
+  var joinSubmitBtn = $('join-submit-btn');
+  var joinForm = $('join-form');
+
+  function openJoinModal() {
+    if (!joinModal) return;
+    joinModal.removeAttribute('hidden');
+    joinModal.hidden = false;
+    joinModal.setAttribute('aria-hidden', 'false');
+    joinModal.classList.add('is-open');
+    if (joinCodeInput) {
+      joinCodeInput.value = '';
+      setTimeout(function () {
+        joinCodeInput.focus();
+      }, 50);
+    }
+  }
+
+  function closeJoinModal() {
+    if (!joinModal) return;
+    joinModal.classList.remove('is-open');
+    joinModal.setAttribute('hidden', '');
+    joinModal.hidden = true;
+    joinModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function handleJoinSubmit() {
+    if (!joinCodeInput) return;
+    var val = String(joinCodeInput.value || '').trim();
+    if (!val) {
+      toast('Please enter a room code');
+      joinCodeInput.focus();
+      return;
+    }
+
+    // Auto-extract code if full URL was pasted (e.g. http://localhost:3001/#room=abc or ?room=abc)
+    var code = val;
+    if (val.indexOf('#') !== -1) {
+      var afterHash = val.split('#')[1];
+      var p = new URLSearchParams(afterHash);
+      code = p.get('room') || afterHash;
+    } else if (val.indexOf('?') !== -1) {
+      var p = new URLSearchParams(val.split('?')[1]);
+      code = p.get('room') || val;
+    }
+
+    code = code.replace(/^[#?]/, '').replace(/^room=/, '').trim();
+
+    var ROOM_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+    if (!ROOM_ID_RE.test(code)) {
+      toast('Invalid room code (use letters, numbers or hyphens)');
+      joinCodeInput.focus();
+      return;
+    }
+
+    if (code === room.id) {
+      toast('You are already in room #' + code);
+      closeJoinModal();
+      return;
+    }
+
+    toast('Joining room #' + code + '…');
+    closeJoinModal();
+    location.hash = 'room=' + code;
+    setTimeout(function () {
+      if (location.hash !== '#room=' + code) {
+        location.hash = 'room=' + code;
+      }
+      location.reload();
+    }, 60);
+  }
+
+  if (joinRoomBtn) joinRoomBtn.addEventListener('click', openJoinModal);
+  if (joinModalClose) joinModalClose.addEventListener('click', closeJoinModal);
+  if (joinCancelBtn) joinCancelBtn.addEventListener('click', closeJoinModal);
+  if (joinSubmitBtn) joinSubmitBtn.addEventListener('click', handleJoinSubmit);
+  if (joinForm) joinForm.addEventListener('submit', function (e) { e.preventDefault(); handleJoinSubmit(); });
+
+  if (joinModal) {
+    joinModal.addEventListener('click', function (e) {
+      if (e.target === joinModal) closeJoinModal();
+    });
+  }
+
   window.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && inviteModal && !inviteModal.hidden) {
-      closeInviteModal();
+    if (e.key === 'Escape') {
+      if (inviteModal && !inviteModal.hidden) closeInviteModal();
+      if (joinModal && !joinModal.hidden) closeJoinModal();
     }
   });
 
