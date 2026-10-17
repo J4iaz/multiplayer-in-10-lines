@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js",
-    "lint": "eslint server.js server/ tests/ --ext .js"
+    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js tests/auth.test.js",
+    "lint": "eslint server.js server/ tests/"
   },
   "engines": {
     "node": ">=20"

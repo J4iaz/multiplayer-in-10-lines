@@ -53,7 +53,13 @@ test('join returns welcome, empty snapshot and presence', async () => {
   assert.match(welcome.color, /^#[0-9a-f]{6}$/);
   assert.deepEqual(snapshot.state, {});
   const presence = await waitForMessage(ws, presenceWith(1));
-  assert.deepEqual(presence.users[0], { id: 'client-aaaaaaaa', name: 'Ada', color: welcome.color });
+  assert.deepEqual(presence.users[0], {
+    id: 'client-aaaaaaaa',
+    userId: 'guest-client-aaaaaaaa',
+    name: 'Ada',
+    color: welcome.color,
+    role: 'editor',
+  });
   ws.close();
 });
 

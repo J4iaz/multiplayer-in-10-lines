@@ -16,11 +16,12 @@ const crypto = require('crypto');
 const express = require('express');
 const { WebSocketServer, WebSocket } = require('ws');
 
-const { LIMITS, ROOM_ID_RE, CLIENT_ID_RE, KEY_RE, FORBIDDEN_KEYS } = require('./server/limits');
+const { LIMITS, ROOM_ID_RE, CLIENT_ID_RE } = require('./server/limits');
 const serverAuth = require('./server/auth');
 const { sanitizeName, colorFor, validatePatch, COLORS } = require('./server/rooms');
 
 function createServer(options = {}) {
+  serverAuth.init();
   const roomTtlMs = options.roomTtlMs != null ? options.roomTtlMs : 60 * 60 * 1000;
   const heartbeatMs = options.heartbeatMs || 30000;
 
@@ -86,7 +87,13 @@ function createServer(options = {}) {
   }
 
   function presenceOf(room) {
-    return [...room.clients.values()].map((c) => ({ id: c.meta.clientId, name: c.meta.name, color: c.meta.color }));
+    return [...room.clients.values()].map((c) => ({
+      id: c.meta.clientId,
+      userId: c.meta.user?.id,
+      name: c.meta.name,
+      color: c.meta.color,
+      role: c.meta.user?.role || 'editor',
+    }));
   }
 
   function broadcastPresence(room) {
@@ -119,7 +126,7 @@ function createServer(options = {}) {
     }
   }
 
-  function handleJoin(ws, msg) {
+  async function handleJoin(ws, msg) {
     const roomId = typeof msg.room === 'string' ? msg.room : '';
     if (!ROOM_ID_RE.test(roomId)) {
       send(ws, { type: 'error', code: 'invalid_room', message: 'Room id must be 1-64 letters, digits or hyphens.' });
@@ -127,6 +134,37 @@ function createServer(options = {}) {
       return;
     }
     const clientId = typeof msg.clientId === 'string' && CLIENT_ID_RE.test(msg.clientId) ? msg.clientId : crypto.randomUUID();
+
+    if (msg.token) {
+      const authResult = await serverAuth.verifyToken(msg.token);
+      if (authResult.error || !authResult.user) {
+        send(ws, { type: 'error', code: 'auth_expired', message: 'Authentication failed or token expired.' });
+        ws.close(4401, 'auth expired');
+        return;
+      }
+      const user = authResult.user;
+      const userName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.display_name)) || sanitizeName(msg.name);
+      ws.meta.user = {
+        id: user.id,
+        email: user.email,
+        name: userName,
+        role: 'editor',
+      };
+      ws.meta.name = ws.meta.user.name;
+    } else {
+      if (process.env.ALLOW_GUESTS === 'false' && process.env.SUPABASE_URL) {
+        send(ws, { type: 'error', code: 'auth_required', message: 'Authentication required. Please sign in.' });
+        ws.close(4401, 'auth required');
+        return;
+      }
+      ws.meta.user = {
+        id: 'guest-' + clientId,
+        name: sanitizeName(msg.name),
+        role: 'editor',
+        isGuest: true,
+      };
+      ws.meta.name = ws.meta.user.name;
+    }
 
     leaveRoom(ws);
     const room = getRoom(roomId);
@@ -148,7 +186,6 @@ function createServer(options = {}) {
 
     ws.meta.roomId = roomId;
     ws.meta.clientId = clientId;
-    ws.meta.name = sanitizeName(msg.name);
     ws.meta.color = colorFor(clientId);
     room.clients.set(clientId, ws);
 
@@ -157,6 +194,8 @@ function createServer(options = {}) {
       clientId,
       name: ws.meta.name,
       color: ws.meta.color,
+      role: ws.meta.user.role,
+      user: ws.meta.user,
       room: roomId,
       limits: { valueBytesMax: LIMITS.valueBytesMax, keyMax: LIMITS.keyMax, nameMax: LIMITS.nameMax },
     });
@@ -209,6 +248,7 @@ function createServer(options = {}) {
     const room = currentRoom(ws);
     if (!room) return;
     ws.meta.name = sanitizeName(msg.name);
+    if (ws.meta.user) ws.meta.user.name = ws.meta.name;
     broadcastPresence(room);
   }
 
@@ -230,7 +270,7 @@ function createServer(options = {}) {
   }
 
   wss.on('connection', (ws) => {
-    ws.meta = { roomId: null, clientId: null, name: 'Guest', color: COLORS[0], alive: true, rate: { windowStart: Date.now(), count: 0 } };
+    ws.meta = { roomId: null, clientId: null, name: 'Guest', color: COLORS[0], alive: true, user: null, rate: { windowStart: Date.now(), count: 0 } };
     ws.on('pong', () => {
       ws.meta.alive = true;
     });

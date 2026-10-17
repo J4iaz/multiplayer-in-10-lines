@@ -26,8 +26,43 @@
   var emptyAddNote = $('empty-add-note');
   var emptyInvite = $('empty-invite');
 
+  function getStoredSession() {
+    try {
+      var custom = localStorage.getItem('supabase_session');
+      if (custom) {
+        var parsed = JSON.parse(custom);
+        if (parsed && (parsed.access_token || (parsed.session && parsed.session.access_token))) {
+          return parsed.session || parsed;
+        }
+      }
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+          var val = localStorage.getItem(k);
+          if (val) {
+            var p = JSON.parse(val);
+            if (p && (p.access_token || (p.session && p.session.access_token))) {
+              return p.session || p;
+            }
+          }
+        }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  var session = getStoredSession();
+  var joinOptions = {};
+  if (session && session.access_token) {
+    joinOptions.token = session.access_token;
+    if (session.user) {
+      var userDisplayName = (session.user.user_metadata && (session.user.user_metadata.full_name || session.user.user_metadata.display_name)) || (session.user.email ? session.user.email.split('@')[0] : '');
+      if (userDisplayName) joinOptions.name = userDisplayName;
+    }
+  }
+
   // ---- Multiplayer: this is the whole integration ----
-  var room = Multiplayer.join();
+  var room = Multiplayer.join(joinOptions);
   room.enableCursors({ container: board });
   room.onStateChange(function (state) {
     latest = state;
@@ -39,6 +74,19 @@
     toast('Sync error: ' + err.message);
   });
   // -----------------------------------------------------
+
+  function saveRoomToHistory(id) {
+    if (!id) return;
+    try {
+      var list = JSON.parse(localStorage.getItem('sticky_my_rooms') || '[]');
+      var idx = list.findIndex(function (r) { return r.id === id; });
+      var item = { id: id, name: 'Room #' + id, lastVisited: Date.now() };
+      if (idx !== -1) list.splice(idx, 1);
+      list.unshift(item);
+      localStorage.setItem('sticky_my_rooms', JSON.stringify(list.slice(0, 24)));
+    } catch (e) {}
+  }
+  saveRoomToHistory(room.id);
 
   var latest = room.getState();
   var noteEls = new Map(); // id -> { el, text, author }
@@ -801,10 +849,85 @@
     });
   }
 
+  var userProfileChip = $('user-profile-chip');
+  var userAvatarBadge = $('user-avatar-badge');
+  var userNameDisplay = $('user-name-display');
+  var signOutBtn = $('sign-out-btn');
+  var signInBtn = $('sign-in-btn');
+  var authModal = $('auth-modal');
+  var authModalClose = $('auth-modal-close');
+  var authGoPageBtn = $('auth-go-page-btn');
+
+  function updateAuthUI() {
+    if (session && session.user) {
+      var u = session.user;
+      var name = (u.user_metadata && (u.user_metadata.full_name || u.user_metadata.display_name)) || u.email || 'Member';
+      if (userProfileChip) {
+        userProfileChip.style.display = 'flex';
+        if (userNameDisplay) userNameDisplay.textContent = name;
+        if (userAvatarBadge) userAvatarBadge.textContent = name.slice(0, 2).toUpperCase();
+      }
+      if (signInBtn) signInBtn.style.display = 'none';
+      if (nameInput) nameInput.value = name;
+    } else {
+      if (userProfileChip) userProfileChip.style.display = 'none';
+      if (signInBtn) signInBtn.style.display = '';
+    }
+  }
+
+  if (signOutBtn) {
+    signOutBtn.addEventListener('click', function () {
+      try {
+        localStorage.removeItem('supabase_session');
+        for (var i = localStorage.length - 1; i >= 0; i--) {
+          var k = localStorage.key(i);
+          if (k && (k.startsWith('sb-') || k.includes('auth-token'))) {
+            localStorage.removeItem(k);
+          }
+        }
+      } catch (e) {}
+      toast('Signed out');
+      setTimeout(function () { location.reload(); }, 250);
+    });
+  }
+
+  function openAuthModal() {
+    if (authModal) {
+      authModal.removeAttribute('hidden');
+      authModal.hidden = false;
+      authModal.classList.add('is-open');
+    } else {
+      var curRoom = room ? room.id : '';
+      location.href = '/auth.html#room=' + encodeURIComponent(curRoom);
+    }
+  }
+
+  function closeAuthModal() {
+    if (!authModal) return;
+    authModal.classList.remove('is-open');
+    authModal.setAttribute('hidden', '');
+    authModal.hidden = true;
+  }
+
+  if (signInBtn) signInBtn.addEventListener('click', openAuthModal);
+  if (authModalClose) authModalClose.addEventListener('click', closeAuthModal);
+  if (authGoPageBtn) {
+    authGoPageBtn.addEventListener('click', function () {
+      var curRoom = room ? room.id : '';
+      location.href = '/auth.html#room=' + encodeURIComponent(curRoom);
+    });
+  }
+  if (authModal) {
+    authModal.addEventListener('click', function (e) {
+      if (e.target === authModal) closeAuthModal();
+    });
+  }
+
   window.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       if (inviteModal && !inviteModal.hidden) closeInviteModal();
       if (joinModal && !joinModal.hidden) closeJoinModal();
+      if (authModal && !authModal.hidden) closeAuthModal();
     }
   });
 
@@ -840,6 +963,7 @@
     if (newRoom && newRoom !== room.id) location.reload();
   });
 
+  updateAuthUI();
   renderStatus({ status: room.status, pending: 0 });
   renderPresence([room.me]);
   render();

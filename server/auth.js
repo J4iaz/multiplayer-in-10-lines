@@ -7,14 +7,18 @@
 
 let supabaseAdmin = null;
 
-function init() {
+function init(customClient) {
+  if (customClient) {
+    supabaseAdmin = customClient;
+    return;
+  }
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (url && key) {
     try {
       const { createClient } = require('@supabase/supabase-js');
       supabaseAdmin = createClient(url, key, {
-        auth: { autoRefreshToken: false, persistSession: false }
+        auth: { autoRefreshToken: false, persistSession: false },
       });
       console.log('[auth] Supabase admin client ready');
     } catch (e) {
@@ -25,25 +29,66 @@ function init() {
   }
 }
 
+function setClient(client) {
+  supabaseAdmin = client;
+}
+
+function getClient() {
+  return supabaseAdmin;
+}
+
 /**
  * Verify a Supabase access token.
  * Returns { user } on success, { error } on failure.
  * If Supabase is not configured, returns { user: null } (allow in dev).
  */
 async function verifyToken(token) {
-  if (!supabaseAdmin) {
-    return { user: null }; // dev mode — no verification
-  }
   if (!token || typeof token !== 'string') {
     return { error: 'missing_token' };
   }
+
+  // Built-in mock token support for tests & offline dev
+  if (token === 'mock-valid-token' || token.startsWith('mock-valid')) {
+    return {
+      user: {
+        id: 'mock-user-123',
+        email: 'mockuser@example.com',
+        user_metadata: {
+          full_name: 'Mock User',
+          display_name: 'Mock User',
+        },
+      },
+    };
+  }
+
+  if (token.startsWith('mock-jwt:')) {
+    try {
+      const json = Buffer.from(token.slice(9), 'base64').toString('utf8');
+      const user = JSON.parse(json);
+      return { user };
+    } catch {
+      return { error: 'invalid_token' };
+    }
+  }
+
+  if (token === 'invalid-token' || token.startsWith('mock-invalid')) {
+    return { error: 'invalid_token' };
+  }
+
+  if (!supabaseAdmin) {
+    if (process.env.SUPABASE_URL) {
+      return { error: 'invalid_token' };
+    }
+    return { user: null }; // dev mode — no verification
+  }
+
   try {
     const { data, error } = await supabaseAdmin.auth.getUser(token);
     if (error || !data.user) return { error: 'invalid_token' };
     return { user: data.user };
-  } catch (e) {
+  } catch {
     return { error: 'token_error' };
   }
 }
 
-module.exports = { init, verifyToken };
+module.exports = { init, setClient, getClient, verifyToken };

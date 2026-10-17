@@ -19,7 +19,7 @@
   }
   var VALUE_BYTES_MAX = 10 * 1024;
   var NAME_MAX = 50;
-  var FATAL_CLOSE_CODES = { 4400: true, 4409: true, 4429: true };
+  var FATAL_CLOSE_CODES = { 4400: true, 4401: true, 4409: true, 4429: true };
   var ID_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'; // 32 chars, no ambiguous ones
   var NAME_STORAGE_KEY = 'multiplayer:name';
 
@@ -342,8 +342,9 @@
     var reconnectBaseMs = opts.reconnectBaseMs || 1000;
     var reconnectMaxMs = opts.reconnectMaxMs || 30000;
     var pingIntervalMs = opts.pingIntervalMs || 25000;
+    var token = opts.token || null;
 
-    var me = { id: randomId(16), name: name, color: '#888888' };
+    var me = { id: randomId(16), name: name, color: '#888888', role: 'editor', user: null };
     var state = Object.create(null); // local view (server state + optimistic writes)
     var pending = Object.create(null); // writes not yet sent (offline queue), last-write-wins per key
     var inflight = Object.create(null); // key -> number of our writes awaiting server echo
@@ -484,6 +485,8 @@
           me.id = msg.clientId;
           me.name = msg.name;
           me.color = msg.color;
+          if (msg.role) me.role = msg.role;
+          if (msg.user) me.user = msg.user;
           return;
         case 'snapshot':
           return applySnapshot(msg.state);
@@ -531,7 +534,9 @@
       socket.onopen = function () {
         if (ws !== socket) return;
         lastSeen = Date.now();
-        send({ type: 'join', room: roomId, clientId: me.id, name: me.name });
+        var joinMsg = { type: 'join', room: roomId, clientId: me.id, name: me.name };
+        if (token) joinMsg.token = token;
+        send(joinMsg);
         startPing();
       };
 

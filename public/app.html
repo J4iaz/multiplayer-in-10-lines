@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#05071a" />
+    <title>Sticky Board · Multiplayer Room</title>
+    <meta name="description" content="Realtime collaborative sticky-note board. Create notes, share ideas, and collaborate live." />
+    <!-- Fonts: Plus Jakarta Sans (primary) + Inter (notes/body) + Geist Mono (room IDs) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/multiplayer.js" defer></script>
+    <script src="/glass-fold.js" defer></script>
+    <script src="/liquid-metal.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#board">Skip to board</a>
+
+    <!-- Animated WebGL Glass Fold Background -->
+    <canvas id="glassFoldCanvas" class="glass-fold-bg" aria-hidden="true"></canvas>
+    <div class="vignette-overlay" aria-hidden="true"></div>
+
+    <!-- Floating Pill Navbar with Liquid Metal Glossy Border -->
+    <header class="topbar-wrap">
+      <div class="topbar-shell">
+        <!-- Liquid metal animated glossy border layer -->
+        <div class="topbar-shader-layer" aria-hidden="true">
+          <canvas id="topbarShaderCanvas" class="topbar-shader-canvas"></canvas>
+        </div>
+
+        <nav class="topbar" role="navigation" aria-label="Main navigation">
+          <!-- Brand: Logo + Wordmark + Room ID -->
+          <div class="brand" title="Sticky Board">
+            <a href="/" style="display:flex; align-items:center; gap:8px; text-decoration:none; color:inherit;">
+              <!-- Custom Sticky Board SVG Logo Mark -->
+              <div class="logo-mark" aria-hidden="true">
+                <svg class="logo-svg" width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <!-- Back note (offset) -->
+                  <rect x="7" y="9" width="18" height="14" rx="2.5" fill="rgba(150,215,255,0.18)" stroke="rgba(150,215,255,0.5)" stroke-width="1.2"/>
+                  <!-- Front note -->
+                  <rect x="4" y="6" width="18" height="14" rx="2.5" fill="rgba(6,8,30,0.85)" stroke="rgba(150,215,255,0.7)" stroke-width="1.3"/>
+                  <!-- Note lines -->
+                  <line x1="7.5" y1="10.5" x2="18.5" y2="10.5" stroke="rgba(150,215,255,0.45)" stroke-width="1.1" stroke-linecap="round"/>
+                  <line x1="7.5" y1="13" x2="15" y2="13" stroke="rgba(150,215,255,0.3)" stroke-width="1.1" stroke-linecap="round"/>
+                  <!-- Sparkle accent (top-right) -->
+                  <g class="logo-sparkle">
+                    <line x1="26" y1="5" x2="26" y2="9" stroke="#96d7ff" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="24" y1="7" x2="28" y2="7" stroke="#96d7ff" stroke-width="1.5" stroke-linecap="round"/>
+                    <line x1="24.6" y1="5.6" x2="27.4" y2="8.4" stroke="rgba(150,215,255,0.5)" stroke-width="1" stroke-linecap="round"/>
+                    <line x1="27.4" y1="5.6" x2="24.6" y2="8.4" stroke="rgba(150,215,255,0.5)" stroke-width="1" stroke-linecap="round"/>
+                  </g>
+                </svg>
+              </div>
+              <span class="brand-name">Sticky Board</span>
+            </a>
+            <span class="room-chip" title="Current Room Code (share to collaborate)"><span class="room-hash">#</span><code id="room-id" class="room-id-code">…</code></span>
+          </div>
+
+          <!-- Right Side Controls -->
+          <div class="toolbar">
+            <!-- Connection Status -->
+            <span id="status" class="status" data-status="connecting" role="status" aria-live="polite" title="Realtime sync status">
+              <span class="status-dot"></span>
+              <span class="status-text">Connecting</span>
+            </span>
+
+            <!-- Presence Avatars -->
+            <ul id="presence" class="presence" aria-label="People in this room"></ul>
+
+            <!-- Name Input -->
+            <label class="visually-hidden" for="name-input">Your name</label>
+            <input id="name-input" class="name-input" type="text" maxlength="50" autocomplete="nickname" spellcheck="false" placeholder="Your name…" title="Your Display Name (click to edit)" />
+
+            <!-- User Auth Profile (shown when logged in) -->
+            <div id="user-profile-chip" class="user-profile-chip" style="display:none;">
+              <div id="user-avatar-badge" class="user-avatar-badge">U</div>
+              <span id="user-name-display" class="user-name-display">User</span>
+              <span class="user-role-badge">Editor</span>
+              <button id="sign-out-btn" class="btn-glass btn-signout" type="button" title="Sign out">Sign out</button>
+            </div>
+
+            <!-- Sign in button (shown when guest) -->
+            <button id="sign-in-btn" class="btn-glass btn-signin" type="button" title="Sign in to save your identity">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>Sign in</span>
+            </button>
+
+            <!-- Secondary: Invite -->
+            <button id="copy-link" class="btn-glass" type="button" aria-label="Invite Collaborators" title="Invite Collaborators (copy link)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span>Invite</span>
+            </button>
+
+            <!-- Secondary: Join Room by Code -->
+            <button id="join-room-btn" class="btn-glass" type="button" aria-label="Join Room by Code" title="Join Room with Code">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              <span>Join</span>
+            </button>
+
+            <!-- Primary: Add Note (single plus icon only) -->
+            <button id="add-note" class="btn-glass btn-primary-glass" type="button" aria-label="Add a new sticky note" title="Add Sticky Note (or double-click canvas)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Note</span>
+            </button>
+
+            <!-- Icon: Refresh / New Room -->
+            <button id="new-room" class="btn-glass btn-icon-glass" type="button" aria-label="Create a new room" title="Create New Room">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 16h5v5"/>
+              </svg>
+            </button>
+          </div>
+        </nav>
+      </div>
+    </header>
+
+    <!-- Interactive Infinite Board -->
+    <main id="board-wrap" class="board-wrap">
+      <div id="board" class="board" role="region" aria-label="Sticky note board" tabindex="-1">
+
+        <!-- Welcome / Empty State Card -->
+        <div id="empty-hint" class="empty-hint">
+          <!-- Decorative icon -->
+          <div class="empty-icon-wrap" aria-hidden="true">
+            <svg class="empty-brand-icon" width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="7" y="9" width="18" height="14" rx="2.5" fill="rgba(150,215,255,0.12)" stroke="rgba(150,215,255,0.4)" stroke-width="1.2"/>
+              <rect x="4" y="6" width="18" height="14" rx="2.5" fill="rgba(6,8,30,0.7)" stroke="rgba(150,215,255,0.6)" stroke-width="1.3"/>
+              <line x1="7.5" y1="10.5" x2="18.5" y2="10.5" stroke="rgba(150,215,255,0.4)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="7.5" y1="13" x2="14" y2="13" stroke="rgba(150,215,255,0.25)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="26" y1="4" x2="26" y2="8" stroke="#96d7ff" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="24" y1="6" x2="28" y2="6" stroke="#96d7ff" stroke-width="1.6" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h2 class="empty-title">Your ideas, together.</h2>
+          <p class="empty-sub">Create sticky notes, organize your thoughts,<br>and collaborate in real time.</p>
+          <div class="empty-actions">
+            <button class="empty-cta" id="empty-add-note" type="button">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create your first note
+            </button>
+            <button class="empty-invite" id="empty-invite" type="button">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Invite collaborators
+            </button>
+          </div>
+          <p class="empty-hint-tip">Tip: Double-click anywhere on the canvas to drop a note</p>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Professional Invite Dialog Modal -->
+    <div id="invite-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="invite-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </div>
+            <div>
+              <h3 id="invite-modal-title" class="modal-title">Share Room Link</h3>
+              <p class="modal-desc">Anyone with this link can join and collaborate live</p>
+            </div>
+          </div>
+          <button id="invite-modal-close" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <label class="modal-field-label" for="invite-link-input">Invite URL</label>
+          <div class="modal-input-group">
+            <input id="invite-link-input" class="modal-input" type="text" readonly spellcheck="false" title="Click to select all" />
+            <button id="invite-copy-btn" class="modal-copy-btn" type="button" aria-label="Copy invite link">
+              <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+              <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="copy-btn-text">Copy</span>
+            </button>
+          </div>
+          <p id="invite-lan-hint" class="modal-lan-hint"></p>
+        </div>
+
+        <div class="modal-footer">
+          <div class="modal-tip">
+            <span class="modal-status-dot"></span>
+            <span id="modal-status-msg">Click copy or share this link</span>
+          </div>
+          <div class="modal-actions-right">
+            <button id="invite-open-tab-btn" class="modal-test-btn" type="button" title="Test link by opening in new tab">
+              <span>Open in tab</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </button>
+            <button id="invite-done-btn" class="modal-done-btn" type="button">Done</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Join Room Dialog Modal -->
+    <div id="join-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="join-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            </div>
+            <div>
+              <h3 id="join-modal-title" class="modal-title">Join a Room</h3>
+              <p class="modal-desc">Enter the room code shared by your team</p>
+            </div>
+          </div>
+          <button id="join-modal-close" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+        </div>
+
+        <form id="join-form" class="modal-body" onsubmit="return false;">
+          <label class="modal-field-label" for="join-code-input">Room Code</label>
+          <div class="modal-input-group modal-prefix-group">
+            <span class="modal-code-hash" aria-hidden="true">#</span>
+            <input id="join-code-input" class="modal-input modal-code-input" type="text" placeholder="e.g. k9z4q2p8" maxlength="64" spellcheck="false" autocomplete="off" required />
+          </div>
+          <p class="modal-lan-hint">Paste either a room code or a full shared link — the code will be extracted automatically.</p>
+        </form>
+
+        <div class="modal-footer">
+          <button id="join-cancel-btn" class="modal-done-btn" type="button">Cancel</button>
+          <button id="join-submit-btn" class="btn-glass btn-primary-glass" type="button">
+            <span>Join Room</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sign In Modal -->
+    <div id="auth-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="app-auth-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div>
+              <h3 id="app-auth-modal-title" class="modal-title">Sign In</h3>
+              <p class="modal-desc">Sign in to save your identity and sync notes</p>
+            </div>
+          </div>
+          <button id="auth-modal-close" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:10px 0;">
+          <p style="font-size:13.5px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
+            You can sign in with your email or Google account to claim your notes and maintain your identity across rooms.
+          </p>
+          <button id="auth-go-page-btn" class="btn-hero-primary" type="button" style="width:100%; justify-content:center; padding:12px;">
+            <span>Go to Sign In / Sign Up →</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
