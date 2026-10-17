@@ -61,6 +61,10 @@
     }
   } else {
     var guestName = localStorage.getItem('nexusmeet_guest_name');
+    if (!guestName) {
+      guestName = 'Guest ' + Math.floor(100 + Math.random() * 900);
+      try { localStorage.setItem('nexusmeet_guest_name', guestName); } catch (e) {}
+    }
     if (guestName) joinOptions.name = guestName;
   }
 
@@ -149,13 +153,6 @@
       var btnCallTop = $('btn-toggle-call-top');
       if (btnCallTop && videoInstance) {
         btnCallTop.onclick = function () {
-          if (!session && !localStorage.getItem('nexusmeet_guest_name')) {
-            showGatePrompt('call', function () {
-              if (videoInstance.inCall()) videoInstance.endCall();
-              else videoInstance.startCall();
-            });
-            return;
-          }
           if (videoInstance.inCall()) {
             videoInstance.endCall();
           } else {
@@ -347,14 +344,16 @@
     // Dismiss welcome card smoothly when notes exist
     if (seen.size > 0 && !emptyHint.hidden) {
       emptyHint.classList.add('is-leaving');
-      emptyHint.addEventListener('animationend', function handler() {
+      emptyHint.addEventListener('animationend', function handler(e) {
+        if (e && e.animationName && e.animationName !== 'card-leave') return;
         emptyHint.hidden = true;
         emptyHint.classList.remove('is-leaving');
         emptyHint.removeEventListener('animationend', handler);
-      }, { once: true });
-    } else if (seen.size === 0) {
+      });
+    } else if (seen.size === 0 && !emptyHint.dataset.dismissed) {
       emptyHint.hidden = false;
       emptyHint.classList.remove('is-leaving');
+      emptyHint.style.display = 'flex';
     }
 
     var isViewer = room.role === 'viewer';
@@ -1477,6 +1476,17 @@
     heroRoomCode.textContent = '#' + (room.id || '...');
   }
 
+  var heroDismissBtn = $('hero-dismiss-btn');
+  if (heroDismissBtn && emptyHint) {
+    heroDismissBtn.onclick = function () {
+      emptyHint.dataset.dismissed = 'true';
+      emptyHint.classList.add('is-leaving');
+      setTimeout(function () {
+        emptyHint.hidden = true;
+      }, 200);
+    };
+  }
+
   // Pasting a different room link into this tab switches rooms.
   window.addEventListener('hashchange', function () {
     var params = new URLSearchParams(location.hash.slice(1));
@@ -1569,15 +1579,9 @@
     handleGateEnter();
   });
 
-  // Wire up Invite buttons to trigger auth prompt if not authenticated
+  // Wire up Invite buttons (accessible to all guests without login)
   function onInviteTrigger(e) {
     if (e && e.preventDefault) e.preventDefault();
-    if (!session && !localStorage.getItem('nexusmeet_guest_name')) {
-      showGatePrompt('invite', function () {
-        openInviteModal();
-      });
-      return;
-    }
     openInviteModal();
   }
 
@@ -1585,16 +1589,10 @@
   if (copyLinkBtn) copyLinkBtn.onclick = onInviteTrigger;
   if (emptyInvite) emptyInvite.onclick = onInviteTrigger;
 
-  // Wire up Join button to trigger auth prompt if not authenticated
+  // Wire up Join button (accessible to all guests without login)
   if (joinRoomBtn) {
     joinRoomBtn.onclick = function (e) {
       if (e && e.preventDefault) e.preventDefault();
-      if (!session && !localStorage.getItem('nexusmeet_guest_name')) {
-        showGatePrompt('join', function () {
-          openJoinModal();
-        });
-        return;
-      }
       openJoinModal();
     };
   }
