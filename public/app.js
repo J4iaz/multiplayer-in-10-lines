@@ -102,6 +102,11 @@
           onToast: toast,
         });
       }
+    } catch (wbErr) {
+      console.warn('Whiteboard module init error:', wbErr);
+    }
+
+    try {
       if (window.ChatModule && !chatInstance) {
         chatInstance = window.ChatModule.init(room, {
           drawerId: 'chat-drawer',
@@ -114,11 +119,21 @@
           typingIndicatorId: 'chat-typing-indicator',
         });
       }
+    } catch (chatErr) {
+      console.warn('Chat module init error:', chatErr);
+    }
+
+    try {
       if (window.ReactionsModule && !reactionsInstance) {
         reactionsInstance = window.ReactionsModule.init(room, {
           barId: 'reactions-bar',
         });
       }
+    } catch (reactErr) {
+      console.warn('Reactions module init error:', reactErr);
+    }
+
+    try {
       if (window.AvatarModule && !avatarInstance) {
         avatarInstance = window.AvatarModule.init(room, {
           modalId: 'avatar-modal',
@@ -130,46 +145,44 @@
           controlsBodyId: 'avatar-controls-body',
         });
       }
+    } catch (avErr) {
+      console.warn('Avatar module init error:', avErr);
+    }
+
+    try {
       if (window.NexusMeetVideo && !videoInstance) {
         videoInstance = window.NexusMeetVideo.initVideo(room, {
           containerId: 'video-dock',
         });
       }
+    } catch (vidErr) {
+      console.warn('Video module init error:', vidErr);
+    }
 
-      var btnChat = $('btn-toggle-chat');
-      if (btnChat && chatInstance) {
-        btnChat.onclick = function () {
-          chatInstance.toggle();
-        };
-      }
+    var btnCallTop = $('btn-toggle-call-top');
+    if (btnCallTop) {
+      btnCallTop.onclick = function () {
+        if (videoInstance) {
+          if (videoInstance.inCall()) videoInstance.endCall();
+          else videoInstance.startCall();
+        }
+      };
+    }
 
-      var btnAvatar = $('btn-toggle-avatar');
-      if (btnAvatar && avatarInstance) {
-        btnAvatar.onclick = function () {
-          avatarInstance.open();
-        };
-      }
-
-      var btnCallTop = $('btn-toggle-call-top');
-      if (btnCallTop && videoInstance) {
-        btnCallTop.onclick = function () {
-          if (videoInstance.inCall()) {
-            videoInstance.endCall();
-          } else {
-            videoInstance.startCall();
-          }
-        };
-      }
-
-      var btnWb = $('btn-toggle-wb');
-      if (btnWb && whiteboardInstance) {
-        btnWb.onclick = function () {
-          whiteboardInstance.setTool(whiteboardInstance.tool === 'select' ? 'pencil' : 'select');
-          toast(whiteboardInstance.tool === 'pencil' ? '✏️ Draw Mode Active' : '👆 Select Mode Active');
-        };
-      }
-    } catch (modErr) {
-      console.warn('Module init error:', modErr);
+    var btnWb = $('btn-toggle-wb');
+    if (btnWb) {
+      btnWb.onclick = function () {
+        if (emptyHint) {
+          emptyHint.dataset.dismissed = 'true';
+          emptyHint.classList.add('is-leaving');
+          setTimeout(function () { emptyHint.hidden = true; }, 200);
+        }
+        if (whiteboardInstance) {
+          var newTool = whiteboardInstance.tool === 'select' ? 'pencil' : 'select';
+          whiteboardInstance.setTool(newTool);
+          toast(newTool === 'pencil' ? '✏️ Draw Mode Active' : '👆 Select Mode Active');
+        }
+      };
     }
   }
 
@@ -252,6 +265,7 @@
   }
 
   setupRoomListeners();
+  initAllModules();
   // -----------------------------------------------------
 
   function saveRoomToHistory(id) {
@@ -1434,10 +1448,15 @@
     }
   });
 
-  $('new-room').addEventListener('click', function () {
-    location.hash = '';
-    location.reload();
-  });
+  var leaveRoomBtn = $('new-room');
+  if (leaveRoomBtn) {
+    leaveRoomBtn.addEventListener('click', function () {
+      if (room && room.disconnect) {
+        try { room.disconnect(); } catch (e) {}
+      }
+      window.location.href = '/';
+    });
+  }
 
   // Welcome card CTA buttons
   if (emptyAddNote) {
@@ -1451,6 +1470,11 @@
   var emptyDrawBtn = $('empty-draw-btn');
   if (emptyDrawBtn) {
     emptyDrawBtn.addEventListener('click', function () {
+      if (emptyHint) {
+        emptyHint.dataset.dismissed = 'true';
+        emptyHint.classList.add('is-leaving');
+        setTimeout(function () { emptyHint.hidden = true; }, 200);
+      }
       var btnWb = $('btn-toggle-wb');
       if (btnWb) btnWb.click();
     });

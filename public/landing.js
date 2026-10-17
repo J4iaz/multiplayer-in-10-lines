@@ -13,6 +13,8 @@
   }
   if (intendedRoom) {
     sessionStorage.setItem('intended_room', intendedRoom);
+    window.location.replace('/app.html#room=' + encodeURIComponent(intendedRoom));
+    return;
   }
 
   var ID_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
