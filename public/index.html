@@ -33,7 +33,7 @@
 
         <nav class="topbar" role="navigation" aria-label="Main navigation">
           <!-- Brand: Logo + Wordmark + Room ID -->
-          <div class="brand">
+          <div class="brand" title="Sticky Board">
             <!-- Custom Sticky Board SVG Logo Mark -->
             <div class="logo-mark" aria-hidden="true">
               <svg class="logo-svg" width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -54,13 +54,13 @@
               </svg>
             </div>
             <span class="brand-name">Sticky Board</span>
-            <span class="room-chip"><span class="room-hash">#</span><code id="room-id" class="room-id-code">…</code></span>
+            <span class="room-chip" title="Current Room Code (share to collaborate)"><span class="room-hash">#</span><code id="room-id" class="room-id-code">…</code></span>
           </div>
 
           <!-- Right Side Controls -->
           <div class="toolbar">
             <!-- Connection Status -->
-            <span id="status" class="status" data-status="connecting" role="status" aria-live="polite">
+            <span id="status" class="status" data-status="connecting" role="status" aria-live="polite" title="Realtime sync status">
               <span class="status-dot"></span>
               <span class="status-text">Connecting</span>
             </span>
@@ -70,10 +70,10 @@
 
             <!-- Name Input -->
             <label class="visually-hidden" for="name-input">Your name</label>
-            <input id="name-input" class="name-input" type="text" maxlength="50" autocomplete="nickname" spellcheck="false" placeholder="Your name…" />
+            <input id="name-input" class="name-input" type="text" maxlength="50" autocomplete="nickname" spellcheck="false" placeholder="Your name…" title="Your Display Name (click to edit)" />
 
             <!-- Secondary: Invite -->
-            <button id="copy-link" class="btn-glass" type="button" aria-label="Invite Collaborators">
+            <button id="copy-link" class="btn-glass" type="button" aria-label="Invite Collaborators" title="Invite Collaborators (copy link)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
               <span>Invite</span>
             </button>
@@ -85,13 +85,13 @@
             </button>
 
             <!-- Primary: Add Note (single plus icon only) -->
-            <button id="add-note" class="btn-glass btn-primary-glass" type="button" aria-label="Add a new sticky note">
+            <button id="add-note" class="btn-glass btn-primary-glass" type="button" aria-label="Add a new sticky note" title="Add Sticky Note (or double-click canvas)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>Note</span>
             </button>
 
             <!-- Icon: Refresh / New Room -->
-            <button id="new-room" class="btn-glass btn-icon-glass" type="button" aria-label="Create a new room" title="New Room / Refresh">
+            <button id="new-room" class="btn-glass btn-icon-glass" type="button" aria-label="Create a new room" title="Create New Room">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                 <path d="M3 3v5h5"/>

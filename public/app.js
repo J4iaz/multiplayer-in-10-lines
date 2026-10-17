@@ -130,11 +130,12 @@
   function isAuthor(note) {
     if (!note) return false;
     var me = room.me;
-    if (note.authorId && me && me.id) {
-      if (note.authorId === me.id) return true;
+    if (!me) return false;
+    if (note.authorId) {
+      return note.authorId === me.id;
     }
-    if (note.author && me && me.name) {
-      if (note.author === me.name) return true;
+    if (note.author && me.name) {
+      return note.author === me.name;
     }
     return false;
   }
@@ -224,9 +225,10 @@
       entry.text.title = 'Only ' + authorName + ' can edit this note (you can still move it)';
     }
 
-    // Don't fight the local user: skip text while they type, position while they drag.
+    // Don't fight the local user: skip text while the author types, position while they drag.
     var text = typeof note.text === 'string' ? note.text.slice(0, TEXT_MAX) : '';
-    if (document.activeElement !== entry.text && !textTimers.has(id) && entry.text.value !== text) {
+    var isLocalAuthorEditing = canEdit && (document.activeElement === entry.text || textTimers.has(id));
+    if (!isLocalAuthorEditing && entry.text.value !== text) {
       entry.text.value = text;
     }
     if (!(drag && drag.id === id)) {
@@ -833,7 +835,7 @@
     var newRoom = params.get('room');
     if (!newRoom) {
       var raw = location.hash.replace(/^#/, '');
-      if (raw && !raw.includes('=')) newRoom = raw;
+      if (raw && raw.indexOf('=') === -1) newRoom = raw;
     }
     if (newRoom && newRoom !== room.id) location.reload();
   });
