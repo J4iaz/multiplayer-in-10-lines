@@ -591,6 +591,17 @@
             return [msg];
           });
           return;
+        case 'rtc_peers':
+        case 'rtc_peer_joined':
+        case 'rtc_peer_left':
+        case 'rtc_offer':
+        case 'rtc_answer':
+        case 'rtc_ice':
+        case 'media_state':
+          emitter.emit(msg.type, function () {
+            return [msg];
+          });
+          return;
         case 'error': {
           var err = new Error(msg.message || 'Server error');
           err.code = msg.code;
@@ -882,6 +893,15 @@
       /** Set current expression ('happy', 'surprised', 'laughing', 'thinking', 'neutral') */
       setExpression: function (expression) {
         if (isLive()) send({ type: 'set_expression', expression: expression });
+      },
+      /** Send custom typed message over WebSocket */
+      sendMsg: function (msg) {
+        if (isLive()) return send(msg);
+        return false;
+      },
+      /** Listen for custom message events */
+      on: function (eventType, fn) {
+        return emitter.on(eventType, fn);
       },
 
       getPresence: function () {

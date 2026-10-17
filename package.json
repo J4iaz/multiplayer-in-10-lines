@@ -1,13 +1,13 @@
 {
-  "name": "multiplayer-in-10-lines",
+  "name": "nexusmeet",
   "version": "1.0.0",
-  "description": "Drop-in realtime shared state, presence and live cursors for any web page.",
+  "description": "NexusMeet — Realtime Collaboration Platform with Voice, Video, Whiteboard, and Chat.",
   "main": "server.js",
   "private": true,
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js tests/auth.test.js tests/roles.test.js tests/chat-reactions.test.js tests/whiteboard.test.js",
+    "test": "node --test --test-timeout=20000 tests/server.integration.test.js tests/client.integration.test.js tests/auth.test.js tests/roles.test.js tests/chat-reactions.test.js tests/whiteboard.test.js tests/video.test.js",
     "lint": "eslint server.js server/ tests/"
   },
   "engines": {

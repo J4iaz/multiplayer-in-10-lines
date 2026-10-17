@@ -1,5 +1,5 @@
 /*!
- * Live Chat Module for Sticky Board
+ * Live Chat Module for NexusMeet
  * Features:
  * - Collapsible glass side-drawer
  * - Unread message counter badge

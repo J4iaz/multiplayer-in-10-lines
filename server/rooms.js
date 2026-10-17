@@ -59,6 +59,7 @@ function createRoom(id) {
     bannedUsers: new Set(),
     failedAttempts: new Map(),
     chatHistory: [],
+    videoPeers: new Map(),
   };
 }
 

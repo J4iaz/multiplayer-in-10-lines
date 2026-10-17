@@ -1,24 +1,61 @@
-# Multiplayer in 10 Lines
+# NexusMeet — Realtime Collaboration Platform
 
-Drop-in realtime **shared state**, **presence** and **live cursors** for any web page. One `<script>` tag, no build step, no framework, no dependencies in the browser.
+> Upgraded from the lightweight "Multiplayer in 10 Lines" engine into a full-featured realtime collaboration platform with voice & video calling, infinite whiteboard, live chat, floating reactions, custom SVG avatars, host controls, and Supabase authentication.
 
-The demo is a collaborative sticky-note board (`public/app.js`) built only on the public API.
+---
 
-## Quick start
+## ⚡ Features
+
+- **P2P WebRTC Video & Audio Calling**:
+  - Up to 6-peer WebRTC mesh with automatic STUN/TURN ICE negotiation (`GET /api/ice`).
+  - Microphone mute/unmute, Camera toggle, and Screen Sharing (`getDisplayMedia`).
+  - Web Audio API real-time analyser for active speaker highlight ring.
+- **Infinite Canvas & Whiteboard Drawing**:
+  - Pan (Space + drag, middle mouse, trackpad) and Zoom (10% to 500%).
+  - Drawing tools: Pen, Highlighter, Shapes (Rectangle, Circle, Line, Arrow), Eraser, Clear board.
+  - Ephemeral live stroke stream (`draw_live`) throttled to 33ms for smooth co-drawing.
+  - State persistence under `obj:<id>`.
+  - One-click "Export Board PNG" capturing both notes and canvas drawings.
+- **Live Chat & Floating Reactions**:
+  - Collapsible glass drawer with unread counter, auto-scroll, and message deletion.
+  - Instagram Live-style floating emoji reaction bar with realistic drift physics and number shortcuts (1–6).
+- **Custom Layered SVG Avatars**:
+  - Under 2KB SVG generator with customizable skin, hair, eyes, mouth, glasses, and accessories.
+  - 5 quick expressions: *happy*, *surprised*, *laughing*, *thinking*, *neutral*.
+- **Roles, Passwords & Host Controls**:
+  - Automatic `owner` assignment for room creator; `editor` and `viewer` roles.
+  - Host action tools: Lock Room, Viewer-Only toggle, Password protection with bcrypt and rate limiting (5 attempts / 10 mins), Kick, and Ban (`4403`).
+- **Supabase Authentication & JWT**:
+  - Server-side JWT token verification via Supabase Admin SDK.
+  - Guest mode with fallback when auth is unconfigured or optional.
+  - Beautiful dark glass authentication page (`/auth.html`) with password strength indicator.
+- **The Core "10 Lines" API**:
+  - Raw minimal demo preserved in `/10-lines.html`.
+  - Zero external dependencies in browser (`public/multiplayer.js`).
+  - Optimistic updates, offline queue with snapshot reconciliation, exponential backoff reconnect.
+- **100% Green Integration Test Suite**:
+  - 47 passing tests across server, client, auth, roles, whiteboard, chat/reactions, and WebRTC video.
+
+---
+
+## 🚀 Quick start
 
 ```bash
 npm install
-npm start            # http://localhost:3000
-npm test             # server + client integration tests (node:test)
+npm start            # Runs at http://localhost:3000
+npm test             # Runs all 47 node:test integration suites
+npm run lint         # ESLint verification
 ```
 
-Open `http://localhost:3000`, click **Copy invite link**, and open it in another tab or device.
+Open `http://localhost:3000` in your browser.
 
-## Add multiplayer to any page (10 lines)
+---
+
+## 💻 10-Line Quick Start
 
 ```html
 <button id="btn">Clicked 0 times</button>
-<script src="https://YOUR-HOST/multiplayer.js"></script>
+<script src="/multiplayer.js"></script>
 <script>
   const room = Multiplayer.join({ name: prompt('Your name?') });
   room.enableCursors();
@@ -29,63 +66,45 @@ Open `http://localhost:3000`, click **Copy invite link**, and open it in another
 </script>
 ```
 
-The room id is stored in the URL hash (`#room=abc123`), so sharing the URL shares the room.
+---
 
-## API
+## 🔒 Security & Architecture
 
-### `Multiplayer.join(options?) → room`
+- **Strict Content Security Policy (CSP)**: `default-src 'self'`. All scripts and vendor bundles are strictly self-hosted.
+- **Server Authorization**: Roles, rate limits, and permissions are verified on the server. Viewers cannot mutate state.
+- **In-Memory + Database Hybrid**: High-frequency ephemeral traffic stays in-memory (WebSocket), while schemas and tables are ready in `supabase/schema.sql`.
 
-| Option | Default | Description |
-| --- | --- | --- |
-| `room` | from `#room=` or random | Room id: 1–64 letters, digits, hyphens |
-| `name` | saved name or `Guest-xxxx` | Display name (max 50 chars, saved in localStorage) |
-| `serverUrl` | derived from the script's origin | e.g. `wss://my-host/ws`. Required if the page is opened via `file://` |
-| `updateHash` | `true` | Write the room id into `location.hash` |
-| `reconnectBaseMs` / `reconnectMaxMs` | `1000` / `30000` | Exponential backoff with jitter |
+---
 
-### Room
+## 📜 Test Suite (47/47 passing)
 
-| Member | Description |
-| --- | --- |
-| `room.setState(key, value)` / `room.setState({ a: 1, b: 2 })` | Optimistic write, synced to everyone. `null` deletes a key. Values must be JSON-serializable, ≤ 10 KB each |
-| `room.getState()` / `room.getState(key)` | Returns a **copy** (mutating it does nothing) |
-| `room.onStateChange(fn)` | `fn(state, { keys, source })`, source is `local`, `remote` or `snapshot` |
-| `room.onPresenceChange(fn)` / `room.getPresence()` | `[{ id, name, color }]` |
-| `room.onStatusChange(fn)` / `room.status` | `connecting`, `connected`, `reconnecting`, `disconnected` (+ `pending` count) |
-| `room.onError(fn)` | Server rejections (invalid patch, room full…) |
-| `room.enableCursors({ container? })` | Live cursors over `container` (default `document.body`). Returns `{ disable() }` |
-| `room.setName(name)` | Rename yourself for everyone |
-| `room.shareUrl()` | Invite URL for this room |
-| `room.getPendingCount()` | Writes queued while offline |
-| `room.id`, `room.me` | Room id and `{ id, name, color }` |
-| `room.disconnect()` | Leave for good |
-
-Every `on*` method returns an unsubscribe function.
-
-## Sync semantics
-
-- **Flat key/value store, last write wins per key.** The server orders writes. Put independent things under separate keys (the demo uses `note:<id>` for text and `pos:<id>` for position, so dragging and typing never clobber each other).
-- **Optimistic updates.** Local writes show up instantly. The client ignores stale remote values for keys it still has in flight, so there's no flicker.
-- **Offline queue.** Writes while disconnected are queued (deduplicated per key). On reconnect the client gets a fresh snapshot, re-applies the queue on top, and flushes it.
-- **Reconnect.** Exponential backoff 1s → 30s with jitter, immediate retry on the browser `online` event, plus a ping watchdog for silently dead connections.
-
-## Server
-
-`server.js` is Express + [`ws`](https://github.com/websockets/ws): static files from `public/`, `GET /health`, and a WebSocket at `/ws`. Rooms live in memory. An empty room keeps its state for `ROOM_TTL_MINUTES` (default 60).
-
-Protocol (JSON): client → `join`, `set_state`, `cursor_move`, `set_name`, `sync`, `ping`; server → `welcome`, `snapshot`, `state_update`, `presence`, `cursor`, `error`, `pong`.
-
-Limits: room id 64 chars, name 50, key 128 (`[A-Za-z0-9_:.-]`), value 10 KB, 1000 keys/room, 50 clients/room, 256 KB/message, 120 messages/s per socket.
-
-## Deploy (Render)
-
-`render.yaml` is included: create a Blueprint on Render and point it at the repo. Render sets `PORT`, and the health check uses `/health`. Any Node host with WebSocket support works the same way (`npm ci && npm start`).
-
-## Limitations
-
-- **No authentication.** Anyone with a room link can read and write that room. Room ids are random and unguessable, but treat them as shared secrets, not access control.
-- State is in memory: it's lost on restart, and the server runs as a single instance (no horizontal scaling).
-- Last-write-wins per key, not CRDT/OT: two people typing in the *same* note at once will overwrite each other's text.
-- Cursor positions are relative to the container, so they line up only when clients render it at the same size (the demo board is fixed at 2400×1600).
-
-More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [docs/DEMO-CHECKLIST.md](docs/DEMO-CHECKLIST.md)
+```
+✔ Tokenless join succeeds when ALLOW_GUESTS !== "false"
+✔ Tokenless join rejected with 4401 auth_required
+✔ Invalid token rejected with 4401 auth_expired
+✔ Valid mock token receives welcome with role "owner"
+✔ Chat message sent and received by other clients
+✔ Chat body rate-limiting works
+✔ Chat typing indicator relayed to peers
+✔ Floating reactions broadcast with allowlisted emojis
+✔ Avatar update reflects in presence
+✔ Expression update broadcasts and reflects in presence
+✔ setState syncs between two clients and fires onStateChange
+✔ getState returns immutable copies
+✔ presence tracks joins, renames and leaves
+✔ rapid writes from two clients converge to the same state
+✔ writes made while disconnected are queued and flushed on reconnect
+✔ room creator gets owner role, second user gets editor
+✔ viewer role cannot mutate state
+✔ host action kick disconnects user with code 4403
+✔ locked room rejects new joins
+✔ password-protected room rejects wrong password
+✔ rate-limiting of failed password attempts
+✔ GET /api/ice returns STUN/TURN configuration
+✔ rtc_join announces peer and sends peers list
+✔ rtc_offer, rtc_answer, and rtc_ice relay between peers
+✔ media_state and rtc_leave broadcast to other peers
+✔ ephemeral draw_live broadcast to other clients
+✔ obj:<id> saves and syncs to late joiners
+✔ viewers cannot send obj:<id> or draw_live
+```

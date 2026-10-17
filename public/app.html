@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#05071a" />
-    <title>Sticky Board · Multiplayer Room</title>
-    <meta name="description" content="Realtime collaborative sticky-note board. Create notes, share ideas, and collaborate live." />
+    <title>NexusMeet · Realtime Collaboration Room</title>
+    <meta name="description" content="NexusMeet — Realtime collaborative room with voice, video, infinite whiteboard, live chat, and presence." />
     <!-- Fonts: Plus Jakarta Sans (primary) + Inter (notes/body) + Geist Mono (room IDs) -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,6 +15,10 @@
     <script src="/glass-fold.js" defer></script>
     <script src="/liquid-metal.js" defer></script>
     <script src="/modules/whiteboard.js" defer></script>
+    <script src="/modules/chat.js" defer></script>
+    <script src="/modules/reactions.js" defer></script>
+    <script src="/modules/avatar.js" defer></script>
+    <script src="/modules/video.js" defer></script>
     <script src="/app.js" defer></script>
   </head>
   <body>
@@ -34,9 +38,9 @@
 
         <nav class="topbar" role="navigation" aria-label="Main navigation">
           <!-- Brand: Logo + Wordmark + Room ID -->
-          <div class="brand" title="Sticky Board">
+          <div class="brand" title="NexusMeet">
             <a href="/" style="display:flex; align-items:center; gap:8px; text-decoration:none; color:inherit;">
-              <!-- Custom Sticky Board SVG Logo Mark -->
+              <!-- Custom NexusMeet SVG Logo Mark -->
               <div class="logo-mark" aria-hidden="true">
                 <svg class="logo-svg" width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <!-- Back note (offset) -->
@@ -55,7 +59,7 @@
                   </g>
                 </svg>
               </div>
-              <span class="brand-name">Sticky Board</span>
+              <span class="brand-name">NexusMeet</span>
             </a>
             <span class="room-chip" title="Current Room Code (share to collaborate)"><span class="room-hash">#</span><code id="room-id" class="room-id-code">…</code></span>
           </div>

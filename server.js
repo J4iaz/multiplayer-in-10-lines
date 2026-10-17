@@ -67,6 +67,21 @@ function createServer(options = {}) {
     });
   });
 
+  app.get('/api/ice', (req, res) => {
+    const stunUrls = process.env.STUN_URLS
+      ? process.env.STUN_URLS.split(',').map((s) => s.trim())
+      : ['stun:stun.l.google.com:19302'];
+    const iceServers = [{ urls: stunUrls }];
+    if (process.env.TURN_URLS && process.env.TURN_USERNAME) {
+      iceServers.push({
+        urls: process.env.TURN_URLS.split(',').map((s) => s.trim()),
+        username: process.env.TURN_USERNAME,
+        credential: process.env.TURN_CREDENTIAL || '',
+      });
+    }
+    res.json({ iceServers });
+  });
+
   app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
   const server = http.createServer(app);
@@ -133,6 +148,10 @@ function createServer(options = {}) {
     const room = rooms.get(roomId);
     if (!room || room.clients.get(clientId) !== ws) return;
     room.clients.delete(clientId);
+    if (room.videoPeers && room.videoPeers.has(clientId)) {
+      room.videoPeers.delete(clientId);
+      broadcast(room, { type: 'rtc_peer_left', peerId: clientId });
+    }
     if (room.clients.size === 0) {
       if (roomTtlMs <= 0) rooms.delete(roomId);
       else {
@@ -558,6 +577,115 @@ function createServer(options = {}) {
     broadcastPresence(room);
   }
 
+  const MAX_VIDEO_PEERS = parseInt(process.env.MAX_VIDEO_PEERS || '6', 10);
+
+  function handleRtcJoin(ws, msg) {
+    const room = currentRoom(ws);
+    if (!room) return;
+    if (!room.videoPeers) room.videoPeers = new Map();
+    if (room.videoPeers.size >= MAX_VIDEO_PEERS && !room.videoPeers.has(ws.meta.clientId)) {
+      send(ws, { type: 'error', code: 'video_full', message: `Call is full (max ${MAX_VIDEO_PEERS} peers).` });
+      return;
+    }
+    const mediaState = {
+      audio: msg && msg.mediaState ? !!msg.mediaState.audio : true,
+      video: msg && msg.mediaState ? !!msg.mediaState.video : true,
+      screen: msg && msg.mediaState ? !!msg.mediaState.screen : false,
+    };
+    ws.meta.inVideoCall = true;
+    ws.meta.mediaState = mediaState;
+    room.videoPeers.set(ws.meta.clientId, {
+      id: ws.meta.clientId,
+      name: ws.meta.name,
+      color: ws.meta.color,
+      avatar: ws.meta.avatar,
+      mediaState,
+    });
+
+    const peers = [];
+    for (const [id, peer] of room.videoPeers.entries()) {
+      if (id !== ws.meta.clientId) peers.push(peer);
+    }
+    send(ws, { type: 'rtc_peers', peers });
+
+    broadcast(room, {
+      type: 'rtc_peer_joined',
+      peer: {
+        id: ws.meta.clientId,
+        name: ws.meta.name,
+        color: ws.meta.color,
+        avatar: ws.meta.avatar,
+        mediaState,
+      },
+    }, ws);
+  }
+
+  function handleRtcOffer(ws, msg) {
+    const room = currentRoom(ws);
+    if (!room) return;
+    const target = msg.targetId ? room.clients.get(msg.targetId) : null;
+    if (!target) return;
+    send(target, {
+      type: 'rtc_offer',
+      fromId: ws.meta.clientId,
+      offer: msg.offer,
+    });
+  }
+
+  function handleRtcAnswer(ws, msg) {
+    const room = currentRoom(ws);
+    if (!room) return;
+    const target = msg.targetId ? room.clients.get(msg.targetId) : null;
+    if (!target) return;
+    send(target, {
+      type: 'rtc_answer',
+      fromId: ws.meta.clientId,
+      answer: msg.answer,
+    });
+  }
+
+  function handleRtcIce(ws, msg) {
+    const room = currentRoom(ws);
+    if (!room) return;
+    const target = msg.targetId ? room.clients.get(msg.targetId) : null;
+    if (!target) return;
+    send(target, {
+      type: 'rtc_ice',
+      fromId: ws.meta.clientId,
+      candidate: msg.candidate,
+    });
+  }
+
+  function handleRtcLeave(ws) {
+    const room = currentRoom(ws);
+    if (!room) return;
+    ws.meta.inVideoCall = false;
+    if (room.videoPeers && room.videoPeers.has(ws.meta.clientId)) {
+      room.videoPeers.delete(ws.meta.clientId);
+      broadcast(room, { type: 'rtc_peer_left', peerId: ws.meta.clientId });
+    }
+  }
+
+  function handleMediaState(ws, msg) {
+    const room = currentRoom(ws);
+    if (!room) return;
+    const mediaState = {
+      audio: !!msg.audio,
+      video: !!msg.video,
+      screen: !!msg.screen,
+    };
+    ws.meta.mediaState = mediaState;
+    if (room.videoPeers && room.videoPeers.has(ws.meta.clientId)) {
+      const p = room.videoPeers.get(ws.meta.clientId);
+      p.mediaState = mediaState;
+    }
+    broadcast(room, {
+      type: 'media_state',
+      peerId: ws.meta.clientId,
+      mediaState,
+    });
+  }
+
   function handleSync(ws) {
     const room = currentRoom(ws);
     if (!room) return;
@@ -634,6 +762,12 @@ function createServer(options = {}) {
         case 'reaction': return handleReaction(ws, msg);
         case 'set_avatar': return handleSetAvatar(ws, msg);
         case 'set_expression': return handleSetExpression(ws, msg);
+        case 'rtc_join': return handleRtcJoin(ws, msg);
+        case 'rtc_offer': return handleRtcOffer(ws, msg);
+        case 'rtc_answer': return handleRtcAnswer(ws, msg);
+        case 'rtc_ice': return handleRtcIce(ws, msg);
+        case 'rtc_leave': return handleRtcLeave(ws);
+        case 'media_state': return handleMediaState(ws, msg);
         case 'sync': return handleSync(ws);
         case 'ping': return send(ws, { type: 'pong', t: msg.t });
         default:

@@ -1,5 +1,5 @@
 /*!
- * Layered SVG Avatar & Expression Generator for Sticky Board
+ * Layered SVG Avatar & Expression Generator for NexusMeet
  * Features:
  * - Lightweight layered SVG avatar generator (Skin tone, Hair, Eyes, Mouth, Glasses, Accessories)
  * - Under 2KB total SVG payload (strictly compliant with server limits)

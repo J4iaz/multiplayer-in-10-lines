@@ -43,7 +43,7 @@ test('serves the library and the demo page', async () => {
   assert.match(lib.headers.get('content-type'), /javascript/);
   const page = await fetch(`${httpUrl}/`);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /Sticky Board/);
+  assert.match(await page.text(), /NexusMeet/);
 });
 
 test('join returns welcome, empty snapshot and presence', async () => {

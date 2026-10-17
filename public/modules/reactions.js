@@ -1,5 +1,5 @@
 /*!
- * Floating Emoji Reactions Module for Sticky Board
+ * Floating Emoji Reactions Module for NexusMeet
  * Features:
  * - Floating emoji reaction bar (Instagram Live style)
  * - Emojis float up from bottom-right with CSS drift and fade out
