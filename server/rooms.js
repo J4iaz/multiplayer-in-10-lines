@@ -11,7 +11,7 @@ const COLORS = ['#e6194b', '#3cb44b', '#4363d8', '#f58231', '#911eb4', '#0b8a8a'
 
 function sanitizeName(value) {
   const name = String(value == null ? '' : value)
-    .replace(/[\u0000-\u001f\u007f]/g, '')
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202f\ufeff]/g, '')
     .trim()
     .slice(0, LIMITS.nameMax);
   return name || 'Guest';
@@ -37,7 +37,15 @@ function validatePatch(patch, roomState) {
     if (!KEY_RE.test(key) || FORBIDDEN_KEYS.has(key)) return { error: `invalid key "${String(key).slice(0, 40)}"` };
     const value = patch[key];
     if (value === null) continue; // deletion
-    const bytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
+    if (value === undefined) return { error: `invalid value for "${key}"` };
+    let jsonStr;
+    try {
+      jsonStr = JSON.stringify(value);
+      if (jsonStr === undefined) return { error: `unserializable value for "${key}"` };
+    } catch {
+      return { error: `unserializable value for "${key}"` };
+    }
+    const bytes = Buffer.byteLength(jsonStr, 'utf8');
     if (bytes > LIMITS.valueBytesMax) return { error: `value for "${key}" exceeds ${LIMITS.valueBytesMax} bytes` };
     if (!roomState.has(key)) newKeys++;
   }

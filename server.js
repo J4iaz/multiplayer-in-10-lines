@@ -46,7 +46,7 @@ function createServer(options = {}) {
     res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss:; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' ws: wss: https://*.supabase.co; img-src 'self' data: blob: https://*.googleusercontent.com https://*.supabase.co; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"
     );
     next();
   });
@@ -217,13 +217,26 @@ function createServer(options = {}) {
   }
 
   function send(ws, msg) {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify(msg));
+      } catch (err) {
+        console.warn('[ws] send error:', err.message);
+      }
+    }
   }
 
   function broadcast(room, msg, exceptWs) {
+    if (!room || !room.clients) return;
     const data = JSON.stringify(msg);
     for (const client of room.clients.values()) {
-      if (client !== exceptWs && client.readyState === WebSocket.OPEN) client.send(data);
+      if (client !== exceptWs && client.readyState === WebSocket.OPEN) {
+        try {
+          client.send(data);
+        } catch (err) {
+          console.warn('[ws] broadcast error:', err.message);
+        }
+      }
     }
   }
 
@@ -258,18 +271,33 @@ function createServer(options = {}) {
   }
 
   function leaveRoom(ws) {
-    const { roomId, clientId } = ws.meta;
+    const { roomId, clientId } = ws.meta || {};
     if (!roomId) return;
     ws.meta.roomId = null;
     const room = rooms.get(roomId);
-    if (!room || room.clients.get(clientId) !== ws) return;
-    room.clients.delete(clientId);
+    if (!room) return;
+
     if (room.videoPeers && room.videoPeers.has(clientId)) {
       room.videoPeers.delete(clientId);
       broadcast(room, { type: 'rtc_peer_left', peerId: clientId });
     }
+
+    if (room.clients.get(clientId) !== ws) return;
+    room.clients.delete(clientId);
+
+    // If room owner leaves and other clients remain, elect the next active client as owner
+    if (ws.meta.role === 'owner' && room.clients.size > 0) {
+      const nextOwner = room.clients.values().next().value;
+      if (nextOwner) {
+        nextOwner.meta.role = 'owner';
+        room.ownerId = nextOwner.meta.user?.id || nextOwner.meta.clientId;
+        send(nextOwner, { type: 'role_change', role: 'owner' });
+        broadcast(room, { type: 'host_event', action: 'owner_reassigned', newOwnerId: nextOwner.meta.clientId });
+      }
+    }
+
     if (room.clients.size === 0) {
-      persist.saveSnapshot(roomId, room.state, room.version);
+      persist.saveSnapshot(roomId, room.state, room.version).catch(() => {});
       if (roomTtlMs <= 0) rooms.delete(roomId);
       else {
         room.cleanupTimer = setTimeout(() => {
@@ -283,126 +311,131 @@ function createServer(options = {}) {
   }
 
   async function handleJoin(ws, msg) {
-    const roomId = typeof msg.room === 'string' ? msg.room : '';
-    if (!ROOM_ID_RE.test(roomId)) {
-      send(ws, { type: 'error', code: 'invalid_room', message: 'Room id must be 1-64 letters, digits or hyphens.' });
-      ws.close(4400, 'invalid room');
-      return;
-    }
-    const clientId = typeof msg.clientId === 'string' && CLIENT_ID_RE.test(msg.clientId) ? msg.clientId : crypto.randomUUID();
-
-    if (msg.token) {
-      const authResult = await serverAuth.verifyToken(msg.token);
-      if (authResult.error || !authResult.user) {
-        send(ws, { type: 'error', code: 'auth_expired', message: 'Authentication failed or token expired.' });
-        ws.close(4401, 'auth expired');
+    try {
+      const roomId = typeof msg.room === 'string' ? msg.room : '';
+      if (!ROOM_ID_RE.test(roomId)) {
+        send(ws, { type: 'error', code: 'invalid_room', message: 'Room id must be 1-64 letters, digits or hyphens.' });
+        ws.close(4400, 'invalid room');
         return;
       }
-      const user = authResult.user;
-      const userName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.display_name || user.user_metadata.name)) || sanitizeName(msg.name);
-      ws.meta.user = {
-        id: user.id,
-        email: user.email,
-        name: userName,
-        role: 'editor',
-        picture: (user.user_metadata && (user.user_metadata.picture || user.user_metadata.avatar_url)) || null,
-        isGuest: false,
-      };
-      ws.meta.name = ws.meta.user.name;
-    } else {
-      if (process.env.ALLOW_GUESTS === 'false' && process.env.SUPABASE_URL) {
-        send(ws, { type: 'error', code: 'auth_required', message: 'Authentication required. Please sign in.' });
-        ws.close(4401, 'auth required');
+      const clientId = typeof msg.clientId === 'string' && CLIENT_ID_RE.test(msg.clientId) ? msg.clientId : crypto.randomUUID();
+
+      if (msg.token) {
+        const authResult = await serverAuth.verifyToken(msg.token);
+        if (authResult.error || !authResult.user) {
+          send(ws, { type: 'error', code: 'auth_expired', message: 'Authentication failed or token expired.' });
+          ws.close(4401, 'auth expired');
+          return;
+        }
+        const user = authResult.user;
+        const userName = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.display_name || user.user_metadata.name)) || sanitizeName(msg.name);
+        ws.meta.user = {
+          id: user.id,
+          email: user.email,
+          name: userName,
+          role: 'editor',
+          picture: (user.user_metadata && (user.user_metadata.picture || user.user_metadata.avatar_url)) || null,
+          isGuest: false,
+        };
+        ws.meta.name = ws.meta.user.name;
+      } else {
+        if (process.env.ALLOW_GUESTS === 'false' && process.env.SUPABASE_URL) {
+          send(ws, { type: 'error', code: 'auth_required', message: 'Authentication required. Please sign in.' });
+          ws.close(4401, 'auth required');
+          return;
+        }
+        ws.meta.user = {
+          id: 'guest-' + clientId,
+          name: sanitizeName(msg.name),
+          role: 'editor',
+          isGuest: true,
+        };
+        ws.meta.name = ws.meta.user.name;
+      }
+
+      leaveRoom(ws);
+      const room = getRoom(roomId);
+
+      const userId = ws.meta.user && ws.meta.user.id;
+      const isBanned = room.bannedUsers.has(clientId) ||
+        (userId && room.bannedUsers.has(userId)) ||
+        (ws.meta.ip && ws.meta.ip !== '127.0.0.1' && room.bannedUsers.has(ws.meta.ip));
+      if (isBanned) {
+        send(ws, { type: 'error', code: 'banned', message: 'You have been banned from this room.' });
+        ws.close(4403, 'banned');
         return;
       }
-      ws.meta.user = {
-        id: 'guest-' + clientId,
-        name: sanitizeName(msg.name),
-        role: 'editor',
-        isGuest: true,
-      };
-      ws.meta.name = ws.meta.user.name;
-    }
 
-    leaveRoom(ws);
-    const room = getRoom(roomId);
+      const existing = room.clients.get(clientId);
+      const isExisting = !!existing;
+      const isOwner = !room.ownerId || (userId && room.ownerId === userId) || (room.ownerId === clientId);
 
-    const userId = ws.meta.user && ws.meta.user.id;
-    const isBanned = room.bannedUsers.has(clientId) ||
-      (userId && room.bannedUsers.has(userId)) ||
-      (ws.meta.ip && room.bannedUsers.has(ws.meta.ip));
-    if (isBanned) {
-      send(ws, { type: 'error', code: 'banned', message: 'You have been banned from this room.' });
-      ws.close(4403, 'banned');
-      return;
-    }
-
-    const isOwner = !room.ownerId || room.ownerId === clientId || (userId && room.ownerId === userId);
-    const existing = room.clients.get(clientId);
-    const isExisting = !!existing;
-
-    if (room.locked && !isOwner && !isExisting) {
-      send(ws, { type: 'error', code: 'room_locked', message: 'Room is locked by host.' });
-      ws.close(4403, 'room locked');
-      return;
-    }
-
-    // Password handling
-    if (!room.passwordHash && isOwner) {
-      const passToSet = msg.setPassword || (room.clients.size === 0 && msg.password);
-      if (typeof passToSet === 'string' && passToSet.length > 0) {
-        room.passwordHash = bcrypt.hashSync(passToSet, 10);
+      if (room.locked && !isOwner && !isExisting) {
+        send(ws, { type: 'error', code: 'room_locked', message: 'Room is locked by host.' });
+        ws.close(4403, 'room locked');
+        return;
       }
-    } else if (room.passwordHash) {
-      if (!isOwner && !isExisting) {
-        if (isPasswordRateLimited(room, ws.meta.ip)) {
-          send(ws, { type: 'error', code: 'bad_password', message: 'Too many failed attempts. Try again in 10 minutes.' });
-          ws.close(4403, 'bad password');
-          return;
+
+      // Password handling
+      if (!room.passwordHash && isOwner) {
+        const passToSet = msg.setPassword || (room.clients.size === 0 && msg.password);
+        if (typeof passToSet === 'string' && passToSet.length > 0) {
+          room.passwordHash = bcrypt.hashSync(passToSet, 10);
         }
-        const providedPassword = typeof msg.password === 'string' ? msg.password : '';
-        const ok = providedPassword.length > 0 && bcrypt.compareSync(providedPassword, room.passwordHash);
-        if (!ok) {
-          recordFailedAttempt(room, ws.meta.ip);
-          send(ws, { type: 'error', code: 'bad_password', message: 'Incorrect room password.' });
-          ws.close(4403, 'bad password');
-          return;
+      } else if (room.passwordHash) {
+        if (!isOwner && !isExisting) {
+          if (isPasswordRateLimited(room, ws.meta.ip)) {
+            send(ws, { type: 'error', code: 'bad_password', message: 'Too many failed attempts. Try again in 10 minutes.' });
+            ws.close(4403, 'bad password');
+            return;
+          }
+          const providedPassword = typeof msg.password === 'string' ? msg.password : '';
+          const ok = providedPassword.length > 0 && bcrypt.compareSync(providedPassword, room.passwordHash);
+          if (!ok) {
+            recordFailedAttempt(room, ws.meta.ip);
+            send(ws, { type: 'error', code: 'bad_password', message: 'Incorrect room password.' });
+            ws.close(4403, 'bad password');
+            return;
+          }
+          clearFailedAttempts(room, ws.meta.ip);
         }
-        clearFailedAttempts(room, ws.meta.ip);
       }
-    }
 
-    // Same client reconnecting (e.g. network blip) replaces its stale socket.
-    if (existing && existing !== ws) {
-      existing.meta.roomId = null;
-      room.clients.delete(clientId);
-      existing.close(4409, 'replaced by newer connection');
-    }
+      // Same client reconnecting (e.g. network blip) replaces its stale socket.
+      if (existing && existing !== ws) {
+        if (room.videoPeers && room.videoPeers.has(clientId)) {
+          room.videoPeers.delete(clientId);
+          broadcast(room, { type: 'rtc_peer_left', peerId: clientId });
+        }
+        existing.meta.roomId = null;
+        room.clients.delete(clientId);
+        existing.close(4409, 'replaced by newer connection');
+      }
 
-    if (room.clients.size >= LIMITS.clientsPerRoomMax) {
-      send(ws, { type: 'error', code: 'room_full', message: `Room is full (max ${LIMITS.clientsPerRoomMax}).` });
-      if (room.clients.size === 0) rooms.delete(roomId);
-      ws.close(4429, 'room full');
-      return;
-    }
+      if (room.clients.size >= LIMITS.clientsPerRoomMax) {
+        send(ws, { type: 'error', code: 'room_full', message: `Room is full (max ${LIMITS.clientsPerRoomMax}).` });
+        if (room.clients.size === 0) rooms.delete(roomId);
+        ws.close(4429, 'room full');
+        return;
+      }
 
-    if (!room.ownerId) {
-      room.ownerId = userId || clientId;
-      ws.meta.role = 'owner';
-    } else if (isOwner) {
-      ws.meta.role = 'owner';
-    } else if (existing) {
-      ws.meta.role = existing.meta.role;
-    } else if (room.viewerOnly) {
-      ws.meta.role = 'viewer';
-    } else {
-      ws.meta.role = 'editor';
-    }
+      if (!room.ownerId) {
+        room.ownerId = userId || clientId;
+        ws.meta.role = 'owner';
+      } else if (isOwner) {
+        ws.meta.role = 'owner';
+      } else if (existing) {
+        ws.meta.role = existing.meta.role;
+      } else if (room.viewerOnly) {
+        ws.meta.role = 'viewer';
+      } else {
+        ws.meta.role = 'editor';
+      }
 
-    ws.meta.roomId = roomId;
-    ws.meta.clientId = clientId;
-    ws.meta.color = colorFor(clientId);
-    room.clients.set(clientId, ws);
+      ws.meta.roomId = roomId;
+      ws.meta.clientId = clientId;
+      ws.meta.color = colorFor(clientId);
+      room.clients.set(clientId, ws);
 
     send(ws, {
       type: 'welcome',
@@ -420,7 +453,11 @@ function createServer(options = {}) {
     send(ws, { type: 'snapshot', state: stateObject(room), version: room.version });
     send(ws, { type: 'chat_history', messages: room.chatHistory || [] });
     broadcastPresence(room);
+  } catch (joinErr) {
+    console.warn('[ws] handleJoin error:', joinErr.message);
+    send(ws, { type: 'error', code: 'join_failed', message: 'Failed to join room.' });
   }
+}
 
   function currentRoom(ws) {
     const room = ws.meta.roomId ? rooms.get(ws.meta.roomId) : null;
@@ -470,7 +507,9 @@ function createServer(options = {}) {
   function handleSetName(ws, msg) {
     const room = currentRoom(ws);
     if (!room) return;
-    ws.meta.name = sanitizeName(msg.name);
+    const newName = sanitizeName(msg.name);
+    if (ws.meta.name === newName) return;
+    ws.meta.name = newName;
     if (ws.meta.user) ws.meta.user.name = ws.meta.name;
     broadcastPresence(room);
   }
@@ -513,6 +552,19 @@ function createServer(options = {}) {
         }
         break;
       }
+      case 'transfer_owner': {
+        const target = room.clients.get(msg.targetId);
+        if (target && target !== ws) {
+          ws.meta.role = 'editor';
+          target.meta.role = 'owner';
+          room.ownerId = target.meta.user?.id || target.meta.clientId;
+          send(ws, { type: 'role_change', role: 'editor' });
+          send(target, { type: 'role_change', role: 'owner' });
+          broadcast(room, { type: 'host_event', action: 'owner_reassigned', newOwnerId: target.meta.clientId });
+          broadcastPresence(room);
+        }
+        break;
+      }
       case 'kick': {
         const target = room.clients.get(msg.targetId);
         if (target && target !== ws) {
@@ -526,7 +578,7 @@ function createServer(options = {}) {
         if (target && target !== ws) {
           if (target.meta.user?.id) room.bannedUsers.add(target.meta.user.id);
           if (target.meta.clientId) room.bannedUsers.add(target.meta.clientId);
-          if (target.meta.ip) room.bannedUsers.add(target.meta.ip);
+          if (target.meta.ip && target.meta.ip !== '127.0.0.1') room.bannedUsers.add(target.meta.ip);
           send(target, { type: 'error', code: 'banned', message: 'You have been banned from this room.' });
           target.close(4403, 'banned');
         }
@@ -536,6 +588,7 @@ function createServer(options = {}) {
         room.passwordHash = (typeof msg.password === 'string' && msg.password.length > 0)
           ? bcrypt.hashSync(msg.password, 10)
           : null;
+        if (room.failedAttempts) room.failedAttempts.clear();
         broadcast(room, { type: 'host_event', action: 'set_password', hasPassword: !!room.passwordHash });
         break;
       }
@@ -548,6 +601,7 @@ function createServer(options = {}) {
     const room = currentRoom(ws);
     if (!room) return;
     const noteId = (typeof msg.noteId === 'string' && msg.noteId.length > 0) ? msg.noteId.slice(0, 64) : null;
+    if (ws.meta.editingNoteId === noteId) return;
     ws.meta.editingNoteId = noteId;
     broadcastPresence(room);
   }
@@ -559,6 +613,7 @@ function createServer(options = {}) {
       send(ws, { type: 'error', code: 'read_only', message: 'Viewers cannot edit the board.' });
       return;
     }
+    if (msg.points && Array.isArray(msg.points) && msg.points.length > 2000) return;
     const out = Object.assign({}, msg, { type: 'draw_live', from: ws.meta.clientId });
     broadcast(room, out, ws);
   }
@@ -640,8 +695,9 @@ function createServer(options = {}) {
     if (!room) return;
     const id = msg && typeof msg.id === 'string' ? msg.id : null;
     if (!id) return;
+    const isOwner = ws.meta.role === 'owner';
     if (room.chatHistory) {
-      const idx = room.chatHistory.findIndex(m => m.id === id && (m.userId === ws.meta.user?.id || m.clientId === ws.meta.clientId));
+      const idx = room.chatHistory.findIndex(m => m.id === id && (isOwner || m.userId === ws.meta.user?.id || m.clientId === ws.meta.clientId));
       if (idx !== -1) room.chatHistory.splice(idx, 1);
     }
     broadcast(room, { type: 'chat_delete', id, from: ws.meta.clientId });
@@ -749,7 +805,7 @@ function createServer(options = {}) {
     const room = currentRoom(ws);
     if (!room) return;
     const target = msg.targetId ? room.clients.get(msg.targetId) : null;
-    if (!target) return;
+    if (!target || target === ws) return;
     send(target, {
       type: 'rtc_offer',
       fromId: ws.meta.clientId,
@@ -761,7 +817,7 @@ function createServer(options = {}) {
     const room = currentRoom(ws);
     if (!room) return;
     const target = msg.targetId ? room.clients.get(msg.targetId) : null;
-    if (!target) return;
+    if (!target || target === ws) return;
     send(target, {
       type: 'rtc_answer',
       fromId: ws.meta.clientId,
@@ -773,7 +829,7 @@ function createServer(options = {}) {
     const room = currentRoom(ws);
     if (!room) return;
     const target = msg.targetId ? room.clients.get(msg.targetId) : null;
-    if (!target) return;
+    if (!target || target === ws) return;
     send(target, {
       type: 'rtc_ice',
       fromId: ws.meta.clientId,
@@ -814,6 +870,12 @@ function createServer(options = {}) {
   function handleSync(ws) {
     const room = currentRoom(ws);
     if (!room) return;
+    send(ws, {
+      type: 'sync_state',
+      locked: !!room.locked,
+      viewerOnly: !!room.viewerOnly,
+      role: ws.meta.role || 'editor',
+    });
     send(ws, { type: 'snapshot', state: stateObject(room), version: room.version });
     send(ws, { type: 'presence', users: presenceOf(room) });
     send(ws, { type: 'chat_history', messages: room.chatHistory || [] });
@@ -909,12 +971,18 @@ function createServer(options = {}) {
   // Drop sockets that stopped answering (half-open TCP, sleeping laptops, etc.)
   const heartbeat = setInterval(() => {
     for (const ws of wss.clients) {
-      if (!ws.meta.alive) {
+      if (!ws.meta || !ws.meta.alive) {
+        leaveRoom(ws);
         ws.terminate();
         continue;
       }
       ws.meta.alive = false;
-      ws.ping();
+      try {
+        ws.ping();
+      } catch {
+        leaveRoom(ws);
+        ws.terminate();
+      }
     }
   }, heartbeatMs);
   if (heartbeat.unref) heartbeat.unref();

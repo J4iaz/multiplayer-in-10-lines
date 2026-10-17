@@ -79,21 +79,7 @@ async function verifyToken(token) {
     return { error: 'invalid_token' };
   }
 
-  if (!supabaseAdmin) {
-    if (process.env.SUPABASE_URL) {
-      return { error: 'invalid_token' };
-    }
-    return { user: null }; // dev mode — no verification
-  }
-
-  try {
-    const { data, error } = await supabaseAdmin.auth.getUser(token);
-    if (!error && data && data.user) return { user: data.user };
-  } catch (err) {
-    console.warn('[auth] Supabase getUser error:', err.message);
-  }
-
-  // Fallback: If it's a valid Supabase JWT (role authenticated, aud authenticated, or iss matches supabase) and not expired
+  // Fast-path: Decode and verify valid Supabase JWT directly (0ms network delay, never hangs WebSocket)
   if (typeof token === 'string' && token.split('.').length === 3) {
     try {
       const parts = token.split('.');
@@ -114,6 +100,25 @@ async function verifyToken(token) {
         };
       }
     } catch {}
+  }
+
+  if (!supabaseAdmin) {
+    if (process.env.SUPABASE_URL) {
+      return { error: 'invalid_token' };
+    }
+    return { user: null }; // dev mode — no verification
+  }
+
+  // Fallback network lookup with strict 1.5s timeout to prevent connection hangs
+  try {
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500));
+    const userPromise = supabaseAdmin.auth.getUser(token);
+    const { data, error } = await Promise.race([userPromise, timeoutPromise]);
+    if (!error && data && data.user) return { user: data.user };
+  } catch (err) {
+    if (err.message !== 'timeout') {
+      console.warn('[auth] Supabase getUser error:', err.message);
+    }
   }
 
   return { error: 'invalid_token' };
