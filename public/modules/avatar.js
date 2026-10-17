@@ -58,115 +58,135 @@
 
     var svgParts = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">',
+      '<defs>',
+      '  <linearGradient id="avBg" x1="0%" y1="0%" x2="100%" y2="100%">',
+      '    <stop offset="0%" stop-color="#1e3a8a"/>',
+      '    <stop offset="100%" stop-color="#0284c7"/>',
+      '  </linearGradient>',
+      '</defs>',
       '<!-- Background Circle -->',
-      '<circle cx="50" cy="50" r="48" fill="#0d1333" stroke="rgba(150,215,255,0.4)" stroke-width="2"/>',
+      '<circle cx="50" cy="50" r="48" fill="url(#avBg)" stroke="rgba(150,215,255,0.4)" stroke-width="2"/>',
     ];
 
     // Hair Back Layer (for long hair)
     if (hairStyle === 'long') {
-      svgParts.push('<path d="M22 45 Q20 85 30 92 Q50 95 70 92 Q80 85 78 45 Z" fill="' + hairColor + '"/>');
+      svgParts.push('<path d="M22 42 C16 66, 20 86, 28 92 C38 96, 62 96, 72 92 C80 86, 84 66, 78 42 Z" fill="' + hairColor + '"/>');
     }
 
-    // Body / Shoulders
-    svgParts.push('<path d="M25 96 Q50 82 75 96 Z" fill="rgba(150,215,255,0.3)"/>');
-
-    // Head Base + Ears + Neck
+    // Modern Hoodie / Shoulders
     svgParts.push(
-      '<rect x="42" y="70" width="16" height="14" rx="4" fill="' + skin + '"/>',
-      '<circle cx="21" cy="52" r="6" fill="' + skin + '"/>',
-      '<circle cx="79" cy="52" r="6" fill="' + skin + '"/>',
-      '<circle cx="50" cy="50" r="30" fill="' + skin + '"/>'
+      '<path d="M18 96 C18 78, 32 72, 50 72 C68 72, 82 78, 82 96 Z" fill="#0f172a"/>',
+      '<path d="M42 72 C42 80, 58 80, 58 72" fill="none" stroke="rgba(150,215,255,0.35)" stroke-width="2" stroke-linecap="round"/>'
     );
 
-    // Eyes Layer (changes with expression)
+    // Neck & Ears
+    svgParts.push(
+      '<rect x="43" y="60" width="14" height="15" rx="5" fill="' + skin + '"/>',
+      '<path d="M43 60 C47 64, 53 64, 57 60" fill="rgba(0,0,0,0.1)"/>',
+      '<circle cx="26" cy="48" r="5" fill="' + skin + '"/>',
+      '<circle cx="74" cy="48" r="5" fill="' + skin + '"/>'
+    );
+
+    // Soft Aesthetic Head
+    svgParts.push(
+      '<path d="M28 44 C28 28, 72 28, 72 44 C72 63, 62 70, 50 70 C38 70, 28 63, 28 44 Z" fill="' + skin + '"/>'
+    );
+
+    // Cheeks Blush
+    svgParts.push(
+      '<ellipse cx="36" cy="52" rx="4.5" ry="2.2" fill="rgba(244,63,94,0.2)"/>',
+      '<ellipse cx="64" cy="52" rx="4.5" ry="2.2" fill="rgba(244,63,94,0.2)"/>'
+    );
+
+    // Eyebrows
+    svgParts.push(
+      '<path d="M35 38 Q40 35 45 38" stroke="' + hairColor + '" stroke-width="2" stroke-linecap="round" fill="none"/>',
+      '<path d="M55 38 Q60 35 65 38" stroke="' + hairColor + '" stroke-width="2" stroke-linecap="round" fill="none"/>'
+    );
+
+    // Eyes Layer
     if (expr === 'laughing') {
       svgParts.push(
-        '<path d="M34 47 Q40 40 44 47" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/>',
-        '<path d="M56 47 Q60 40 66 47" stroke="#111" stroke-width="3" fill="none" stroke-linecap="round"/>'
+        '<path d="M36 47 Q40 41 45 47" stroke="#0f172a" stroke-width="3" fill="none" stroke-linecap="round"/>',
+        '<path d="M55 47 Q60 41 64 47" stroke="#0f172a" stroke-width="3" fill="none" stroke-linecap="round"/>'
       );
     } else if (expr === 'surprised') {
       svgParts.push(
-        '<circle cx="39" cy="45" r="5.5" fill="#fff" stroke="#111" stroke-width="2"/>',
-        '<circle cx="39" cy="45" r="2.5" fill="#111"/>',
-        '<circle cx="61" cy="45" r="5.5" fill="#fff" stroke="#111" stroke-width="2"/>',
-        '<circle cx="61" cy="45" r="2.5" fill="#111"/>'
+        '<circle cx="41" cy="45" r="5" fill="#fff" stroke="#0f172a" stroke-width="2"/>',
+        '<circle cx="41" cy="45" r="2.5" fill="#0f172a"/>',
+        '<circle cx="59" cy="45" r="5" fill="#fff" stroke="#0f172a" stroke-width="2"/>',
+        '<circle cx="59" cy="45" r="2.5" fill="#0f172a"/>'
       );
     } else if (expr === 'thinking') {
       svgParts.push(
-        '<path d="M33 39 L45 42" stroke="#111" stroke-width="2.5" stroke-linecap="round"/>',
-        '<circle cx="39" cy="46" r="3" fill="#111"/>',
-        '<path d="M55 42 Q61 38 67 42" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/>',
-        '<circle cx="61" cy="47" r="2" fill="#111"/>'
+        '<path d="M36 40 L46 43" stroke="#0f172a" stroke-width="2.5" stroke-linecap="round"/>',
+        '<ellipse cx="41" cy="46" rx="3.5" ry="4" fill="#0f172a"/>',
+        '<circle cx="42.5" cy="44.5" r="1.2" fill="#fff"/>',
+        '<path d="M54 43 Q60 39 65 43" stroke="#0f172a" stroke-width="2.5" fill="none" stroke-linecap="round"/>',
+        '<ellipse cx="59" cy="47" rx="3" ry="2.5" fill="#0f172a"/>'
       );
     } else {
-      // Neutral & Happy standard eyes
+      // Modern cute glossy eyes
       svgParts.push(
-        '<circle cx="39" cy="46" r="3.5" fill="#111"/>',
-        '<circle cx="40" cy="44.5" r="1.2" fill="#fff"/>',
-        '<circle cx="61" cy="46" r="3.5" fill="#111"/>',
-        '<circle cx="62" cy="44.5" r="1.2" fill="#fff"/>'
+        '<ellipse cx="41" cy="45" rx="3.5" ry="4.2" fill="#0f172a"/>',
+        '<circle cx="42.5" cy="43.5" r="1.3" fill="#ffffff"/>',
+        '<ellipse cx="59" cy="45" rx="3.5" ry="4.2" fill="#0f172a"/>',
+        '<circle cx="60.5" cy="43.5" r="1.3" fill="#ffffff"/>'
       );
-      if (expr === 'happy') {
-        svgParts.push(
-          '<path d="M34 40 Q39 37 44 40" stroke="#111" stroke-width="1.8" fill="none" stroke-linecap="round"/>',
-          '<path d="M56 40 Q61 37 66 40" stroke="#111" stroke-width="1.8" fill="none" stroke-linecap="round"/>'
-        );
-      }
     }
 
-    // Mouth Layer (changes with expression)
+    // Mouth Layer
     if (expr === 'laughing') {
-      svgParts.push('<path d="M38 60 Q50 78 62 60 Z" fill="#b91c1c" stroke="#111" stroke-width="1.8"/><path d="M42 61 Q50 67 58 61" stroke="#fff" stroke-width="2" fill="none"/>');
+      svgParts.push('<path d="M40 57 Q50 72 60 57 Z" fill="#e11d48" stroke="#0f172a" stroke-width="1.8"/><path d="M43 58 Q50 63 57 58" stroke="#fff" stroke-width="2" fill="none"/>');
     } else if (expr === 'happy') {
-      svgParts.push('<path d="M40 60 Q50 70 60 60" stroke="#111" stroke-width="2.8" fill="none" stroke-linecap="round"/>');
+      svgParts.push('<path d="M42 56 Q50 66 58 56" stroke="#0f172a" stroke-width="2.6" fill="none" stroke-linecap="round"/>');
     } else if (expr === 'surprised') {
-      svgParts.push('<circle cx="50" cy="63" r="5" fill="#111"/>');
+      svgParts.push('<circle cx="50" cy="59" r="4.5" fill="#0f172a"/>');
     } else if (expr === 'thinking') {
-      svgParts.push('<path d="M42 63 Q50 61 58 65" stroke="#111" stroke-width="2.5" fill="none" stroke-linecap="round"/>');
+      svgParts.push('<path d="M43 59 Q50 58 57 61" stroke="#0f172a" stroke-width="2.5" fill="none" stroke-linecap="round"/>');
     } else {
-      // Neutral smile
-      svgParts.push('<path d="M43 62 Q50 66 57 62" stroke="#111" stroke-width="2.2" fill="none" stroke-linecap="round"/>');
+      svgParts.push('<path d="M44 56 Q50 61 56 56" stroke="#0f172a" stroke-width="2.4" fill="none" stroke-linecap="round"/>');
     }
 
     // Glasses Layer
     if (glasses === 'round') {
       svgParts.push(
-        '<circle cx="39" cy="46" r="10" fill="none" stroke="#e0e7ff" stroke-width="2.5"/>',
-        '<circle cx="61" cy="46" r="10" fill="none" stroke="#e0e7ff" stroke-width="2.5"/>',
-        '<line x1="49" y1="46" x2="51" y2="46" stroke="#e0e7ff" stroke-width="2.5"/>'
+        '<circle cx="41" cy="45" r="9.5" fill="rgba(150,215,255,0.12)" stroke="#e2e8f0" stroke-width="2"/>',
+        '<circle cx="59" cy="45" r="9.5" fill="rgba(150,215,255,0.12)" stroke="#e2e8f0" stroke-width="2"/>',
+        '<line x1="50.5" y1="45" x2="49.5" y2="45" stroke="#e2e8f0" stroke-width="2"/>'
       );
     } else if (glasses === 'square') {
       svgParts.push(
-        '<rect x="29" y="37" width="18" height="17" rx="3" fill="none" stroke="#96d7ff" stroke-width="2.5"/>',
-        '<rect x="53" y="37" width="18" height="17" rx="3" fill="none" stroke="#96d7ff" stroke-width="2.5"/>',
-        '<line x1="47" y1="45" x2="53" y2="45" stroke="#96d7ff" stroke-width="2.5"/>'
+        '<rect x="32" y="37" width="18" height="16" rx="3" fill="rgba(150,215,255,0.12)" stroke="#96d7ff" stroke-width="2"/>',
+        '<rect x="50" y="37" width="18" height="16" rx="3" fill="rgba(150,215,255,0.12)" stroke="#96d7ff" stroke-width="2"/>',
+        '<line x1="50" y1="44" x2="50" y2="44" stroke="#96d7ff" stroke-width="2"/>'
       );
     } else if (glasses === 'sunglasses') {
       svgParts.push(
-        '<path d="M28 38 Q50 36 72 38 L69 54 Q50 56 31 54 Z" fill="#111827" stroke="#374151" stroke-width="1.5"/>',
-        '<line x1="33" y1="40" x2="43" y2="50" stroke="rgba(255,255,255,0.4)" stroke-width="1.5" stroke-linecap="round"/>'
+        '<path d="M30 38 Q50 36 70 38 L68 52 Q50 54 32 52 Z" fill="#0f172a" stroke="#334155" stroke-width="1.8"/>',
+        '<line x1="35" y1="40" x2="44" y2="49" stroke="rgba(255,255,255,0.35)" stroke-width="1.5" stroke-linecap="round"/>'
       );
     }
 
     // Hair Front Layer
     if (hairStyle === 'short') {
-      svgParts.push('<path d="M23 45 Q21 21 50 21 Q79 21 77 45 Q67 30 50 31 Q33 30 23 45 Z" fill="' + hairColor + '"/>');
+      svgParts.push('<path d="M24 40 C22 18, 50 16, 76 22 C78 28, 76 38, 74 42 C68 28, 50 28, 30 36 C26 38, 24 40, 24 40 Z" fill="' + hairColor + '"/>');
     } else if (hairStyle === 'curly') {
-      svgParts.push('<path d="M21 44 Q19 25 32 23 Q39 17 50 18 Q62 17 68 23 Q81 25 79 44 Q73 34 50 33 Q27 34 21 44 Z" fill="' + hairColor + '"/>');
+      svgParts.push('<path d="M20 40 C16 32, 22 20, 34 18 C40 12, 60 12, 66 18 C78 20, 84 32, 80 40 C84 46, 78 54, 74 48 C68 32, 32 32, 26 48 C22 54, 16 46, 20 40 Z" fill="' + hairColor + '"/>');
     } else if (hairStyle === 'bob') {
-      svgParts.push('<path d="M21 48 L22 62 Q26 68 30 62 L30 40 Q50 30 70 40 L70 62 Q74 68 78 62 L79 48 Q80 20 50 20 Q20 20 21 48 Z" fill="' + hairColor + '"/>');
+      svgParts.push('<path d="M24 44 C24 60, 26 66, 30 64 C30 50, 34 34, 50 32 C66 34, 70 50, 70 64 C74 66, 76 60, 76 44 C76 18, 24 18, 24 44 Z" fill="' + hairColor + '"/>');
     } else if (hairStyle === 'spiky') {
-      svgParts.push('<path d="M23 44 L27 28 L35 34 L43 19 L50 30 L58 18 L65 33 L73 27 L77 44 Q65 32 50 32 Q35 32 23 44 Z" fill="' + hairColor + '"/>');
+      svgParts.push('<path d="M22 42 L26 26 L34 32 L42 16 L50 28 L58 14 L66 30 L74 24 L78 42 C68 30, 34 30, 22 42 Z" fill="' + hairColor + '"/>');
     } else if (hairStyle === 'long') {
-      svgParts.push('<path d="M24 45 Q25 21 50 21 Q75 21 76 45 Q67 33 50 33 Q33 33 24 45 Z" fill="' + hairColor + '"/>');
+      svgParts.push('<path d="M24 42 C24 20, 50 20, 76 22 C76 34, 74 42, 74 42 C68 30, 50 30, 26 38 Z" fill="' + hairColor + '"/>');
     }
 
     // Accessories Layer
     if (accessory === 'headphones') {
       svgParts.push(
-        '<path d="M17 54 A34 34 0 0 1 83 54" fill="none" stroke="#96d7ff" stroke-width="4.5" stroke-linecap="round"/>',
-        '<rect x="13" y="44" width="8" height="18" rx="4" fill="#3b82f6" stroke="#96d7ff" stroke-width="1.5"/>',
-        '<rect x="79" y="44" width="8" height="18" rx="4" fill="#3b82f6" stroke="#96d7ff" stroke-width="1.5"/>'
+        '<path d="M20 50 A30 30 0 0 1 80 50" fill="none" stroke="#96d7ff" stroke-width="4.5" stroke-linecap="round"/>',
+        '<rect x="17" y="42" width="8" height="18" rx="4" fill="#3b82f6" stroke="#96d7ff" stroke-width="1.5"/>',
+        '<rect x="75" y="42" width="8" height="18" rx="4" fill="#3b82f6" stroke="#96d7ff" stroke-width="1.5"/>'
       );
     } else if (accessory === 'party_hat') {
       svgParts.push(
