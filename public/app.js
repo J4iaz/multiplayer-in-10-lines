@@ -349,8 +349,9 @@
         emptyHint.classList.remove('is-leaving');
         emptyHint.removeEventListener('animationend', handler);
       }, { once: true });
-    } else if (seen.size === 0 && emptyHint.hidden) {
+    } else if (seen.size === 0) {
       emptyHint.hidden = false;
+      emptyHint.classList.remove('is-leaving');
     }
 
     var isViewer = room.role === 'viewer';
@@ -1444,11 +1445,32 @@
     });
   }
 
+  var emptyDrawBtn = $('empty-draw-btn');
+  if (emptyDrawBtn) {
+    emptyDrawBtn.addEventListener('click', function () {
+      var btnWb = $('btn-toggle-wb');
+      if (btnWb) btnWb.click();
+    });
+  }
+
+  var emptyCallBtn = $('empty-call-btn');
+  if (emptyCallBtn) {
+    emptyCallBtn.addEventListener('click', function () {
+      var btnCall = $('btn-toggle-call-top');
+      if (btnCall) btnCall.click();
+    });
+  }
+
   if (emptyInvite) {
     emptyInvite.addEventListener('click', function (e) {
       e.preventDefault();
       openInviteModal();
     });
+  }
+
+  var heroRoomCode = $('hero-room-code');
+  if (heroRoomCode) {
+    heroRoomCode.textContent = '#' + (room.id || '...');
   }
 
   // Pasting a different room link into this tab switches rooms.

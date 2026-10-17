@@ -118,47 +118,6 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
               <span>Join</span>
             </button>
-
-            <!-- Primary: Add Note (single plus icon only) -->
-            <button id="add-note" class="btn-glass btn-primary-glass" type="button" aria-label="Add a new sticky note" title="Add Sticky Note (or double-click canvas)">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              <span>Note</span>
-            </button>
-
-            <!-- Whiteboard Tools Toggle -->
-            <button id="btn-toggle-wb" class="btn-glass" type="button" title="Whiteboard Drawing Tools">
-              <span style="font-size:13px;">🎨</span>
-              <span>Draw</span>
-            </button>
-
-            <!-- Video Call Toggle -->
-            <button id="btn-toggle-call-top" class="btn-glass" type="button" title="Start / Join Video Call">
-              <span style="font-size:13px;">📞</span>
-              <span>Call</span>
-            </button>
-
-            <!-- Live Chat Toggle -->
-            <button id="btn-toggle-chat" class="btn-glass" type="button" title="Open Live Chat">
-              <span style="font-size:13px;">💬</span>
-              <span>Chat</span>
-              <span id="chat-unread-badge" class="badge-count" style="display:none">0</span>
-            </button>
-
-            <!-- Avatar Customizer Toggle -->
-            <button id="btn-toggle-avatar" class="btn-glass" type="button" title="Customize Your Avatar">
-              <span style="font-size:13px;">😊</span>
-              <span>Avatar</span>
-            </button>
-
-            <!-- Icon: Refresh / New Room -->
-            <button id="new-room" class="btn-glass btn-icon-glass" type="button" aria-label="Create a new room" title="Create New Room">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                <path d="M3 3v5h5"/>
-                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-                <path d="M16 16h5v5"/>
-              </svg>
-            </button>
           </div>
         </nav>
       </div>
@@ -168,32 +127,54 @@
     <main id="board-wrap" class="board-wrap">
       <div id="board" class="board" role="region" aria-label="Sticky note board" tabindex="-1">
 
-        <!-- Welcome / Empty State Card -->
-        <div id="empty-hint" class="empty-hint">
-          <!-- Decorative icon -->
+        <!-- Room Welcome Hero Card / In-Canvas Header Banner -->
+        <div id="empty-hint" class="empty-hint hero-welcome-card">
+          <!-- Room Badge -->
+          <div class="empty-pill-badge">
+            <span class="empty-badge-dot"></span>
+            <span>Room <strong id="hero-room-code">#...</strong> · Live Collaborative Space</span>
+          </div>
+
+          <!-- Decorative Brand Icon -->
           <div class="empty-icon-wrap" aria-hidden="true">
-            <svg class="empty-brand-icon" width="36" height="36" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="7" y="9" width="18" height="14" rx="2.5" fill="rgba(150,215,255,0.12)" stroke="rgba(150,215,255,0.4)" stroke-width="1.2"/>
-              <rect x="4" y="6" width="18" height="14" rx="2.5" fill="rgba(6,8,30,0.7)" stroke="rgba(150,215,255,0.6)" stroke-width="1.3"/>
-              <line x1="7.5" y1="10.5" x2="18.5" y2="10.5" stroke="rgba(150,215,255,0.4)" stroke-width="1.1" stroke-linecap="round"/>
-              <line x1="7.5" y1="13" x2="14" y2="13" stroke="rgba(150,215,255,0.25)" stroke-width="1.1" stroke-linecap="round"/>
-              <line x1="26" y1="4" x2="26" y2="8" stroke="#96d7ff" stroke-width="1.6" stroke-linecap="round"/>
-              <line x1="24" y1="6" x2="28" y2="6" stroke="#96d7ff" stroke-width="1.6" stroke-linecap="round"/>
+            <svg class="empty-brand-icon" width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="7" y="9" width="18" height="14" rx="2.5" fill="rgba(150,215,255,0.18)" stroke="rgba(150,215,255,0.5)" stroke-width="1.2"/>
+              <rect x="4" y="6" width="18" height="14" rx="2.5" fill="rgba(6,8,30,0.85)" stroke="rgba(150,215,255,0.7)" stroke-width="1.3"/>
+              <line x1="7.5" y1="10.5" x2="18.5" y2="10.5" stroke="rgba(150,215,255,0.45)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="7.5" y1="13" x2="14" y2="13" stroke="rgba(150,215,255,0.3)" stroke-width="1.1" stroke-linecap="round"/>
+              <line x1="26" y1="4" x2="26" y2="8" stroke="#96d7ff" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="24" y1="6" x2="28" y2="6" stroke="#96d7ff" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
           </div>
-          <h2 class="empty-title">Your ideas, together.</h2>
-          <p class="empty-sub">Create sticky notes, organize your thoughts,<br>and collaborate in real time.</p>
+
+          <h2 class="empty-title">Your ideas, together in real time.</h2>
+          <p class="empty-sub">
+            Brainstorm on sticky notes, sketch on the infinite whiteboard,<br>
+            jump on video calls, and chat with your team in one unified canvas.
+          </p>
+
+          <!-- Quick Action Buttons -->
           <div class="empty-actions">
-            <button class="empty-cta" id="empty-add-note" type="button">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Create your first note
+            <button class="empty-cta btn-glass btn-primary-glass" id="empty-add-note" type="button" title="Add Sticky Note">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              <span>Create Note</span>
             </button>
-            <button class="empty-invite" id="empty-invite" type="button">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-              Invite collaborators
+            <button class="empty-action-btn btn-glass" id="empty-draw-btn" type="button" title="Open Whiteboard">
+              <span>🎨 Start Drawing</span>
+            </button>
+            <button class="empty-action-btn btn-glass" id="empty-call-btn" type="button" title="Start / Join Video Call">
+              <span>📞 Video Call</span>
+            </button>
+            <button class="empty-action-btn btn-glass" id="empty-invite" type="button" title="Invite Collaborators">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <span>Invite Team</span>
             </button>
           </div>
-          <p class="empty-hint-tip">Tip: Double-click anywhere on the canvas to drop a note</p>
+
+          <div class="empty-hint-tip-row">
+            <span class="empty-tip-tag">ProTip</span>
+            <span>Double-click canvas to drop a note · Bottom dock controls drawing, call & chat</span>
+          </div>
         </div>
 
       </div>
@@ -520,6 +501,65 @@
         </div>
       </div>
     </div>
+
+    <!-- Floating Bottom Dock (Google Meet / Discord style controls) -->
+    <nav id="room-dock" class="room-dock glass-dock" role="toolbar" aria-label="Room Controls">
+      <!-- Add Note -->
+      <button id="add-note" class="dock-btn btn-dock-primary" type="button" aria-label="Add a new sticky note" title="Add Sticky Note (or double-click canvas)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span class="dock-label">Note</span>
+      </button>
+
+      <div class="dock-sep" aria-hidden="true"></div>
+
+      <!-- Whiteboard Tools Toggle -->
+      <button id="btn-toggle-wb" class="dock-btn" type="button" title="Whiteboard Drawing Tools">
+        <span class="dock-icon">🎨</span>
+        <span class="dock-label">Draw</span>
+      </button>
+
+      <!-- Video Call Toggle -->
+      <button id="btn-toggle-call-top" class="dock-btn" type="button" title="Start / Join Video Call">
+        <span class="dock-icon">📞</span>
+        <span class="dock-label">Call</span>
+      </button>
+
+      <!-- Live Chat Toggle -->
+      <button id="btn-toggle-chat" class="dock-btn dock-btn-chat" type="button" title="Open Live Chat">
+        <span class="dock-icon">💬</span>
+        <span class="dock-label">Chat</span>
+        <span id="chat-unread-badge" class="badge-count" style="display:none">0</span>
+      </button>
+
+      <!-- Avatar Customizer Toggle -->
+      <button id="btn-toggle-avatar" class="dock-btn" type="button" title="Customize Your Avatar">
+        <span class="dock-icon">😊</span>
+        <span class="dock-label">Avatar</span>
+      </button>
+
+      <div class="dock-sep" aria-hidden="true"></div>
+
+      <!-- Quick Reactions Bar -->
+      <div id="reactions-bar" class="dock-reactions" aria-label="Quick Reactions" title="Send floating reaction (Keys 1-5)">
+        <button class="reaction-dock-btn" type="button" data-emoji="👏" title="React with 👏 (Key 1)">👏</button>
+        <button class="reaction-dock-btn" type="button" data-emoji="❤️" title="React with ❤️ (Key 2)">❤️</button>
+        <button class="reaction-dock-btn" type="button" data-emoji="🔥" title="React with 🔥 (Key 3)">🔥</button>
+        <button class="reaction-dock-btn" type="button" data-emoji="🚀" title="React with 🚀 (Key 4)">🚀</button>
+        <button class="reaction-dock-btn" type="button" data-emoji="💡" title="React with 💡 (Key 5)">💡</button>
+      </div>
+
+      <div class="dock-sep" aria-hidden="true"></div>
+
+      <!-- Leave Room / New Room -->
+      <button id="new-room" class="dock-btn dock-btn-danger" type="button" aria-label="Leave or Create new room" title="Leave room / Create new room">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+        <span class="dock-label">Leave</span>
+      </button>
+    </nav>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </body>
