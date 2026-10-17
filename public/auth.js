@@ -467,10 +467,6 @@
           }
         }
       }
-
-      if (config.allowGuests && loginGuestBtn) {
-        loginGuestBtn.style.display = '';
-      }
     })
     .catch(function () {
       if (devNotice) devNotice.style.display = 'none';
@@ -478,7 +474,6 @@
       window._SUPABASE_ANON_KEY = DEFAULT_SB_ANON;
       config.hasAuth = true;
       initSupabase();
-      if (loginGuestBtn) loginGuestBtn.style.display = '';
     });
 
   // ── Initial view from hash ──
