@@ -63,6 +63,7 @@
     this.board = opts.board || document.getElementById('board');
     this.onAddNote = opts.onAddNote || null;
     this.onBoardCleared = opts.onBoardCleared || null;
+    this.onClose = opts.onClose || null;
     this.onToast = opts.onToast || function () {};
 
     // Camera State
@@ -379,7 +380,13 @@
       wbCloseBtn.addEventListener('click', function () {
         self.hideUI();
         self.setTool('select');
-        self.onToast('Drawing tools closed (Click 🎨 Draw to re-open)');
+        if (typeof self.onClose === 'function') {
+          self.onClose();
+        }
+        if (typeof self.onBoardCleared === 'function') {
+          self.onBoardCleared();
+        }
+        self.onToast('Drawing tools closed · Note creation palette active');
       });
     }
 
@@ -417,7 +424,9 @@
         if (self.toolbar && self.toolbar.classList.contains('is-visible')) {
           self.hideUI();
           self.setTool('select');
-          self.onToast('Drawing tools closed (Click 🎨 Draw to re-open)');
+          if (typeof self.onClose === 'function') self.onClose();
+          if (typeof self.onBoardCleared === 'function') self.onBoardCleared();
+          self.onToast('Drawing tools closed · Note creation palette active');
           e.preventDefault();
           return;
         }

@@ -294,6 +294,25 @@
   function initAllModules() {
     if (modulesInitialized) return;
     modulesInitialized = true;
+    function restoreNotePalette() {
+      var dock = $('room-dock');
+      if (dock) {
+        dock.classList.add('dock-pulse-highlight');
+        setTimeout(function () { dock.classList.remove('dock-pulse-highlight'); }, 1400);
+      }
+      if (emptyHint) {
+        emptyHint.dataset.dismissed = 'false';
+        if (noteEls.size === 0) {
+          emptyHint.hidden = false;
+          emptyHint.removeAttribute('hidden');
+          emptyHint.classList.remove('is-leaving');
+          emptyHint.style.display = 'flex';
+        }
+      }
+      var noteBtn = $('add-note');
+      if (noteBtn) noteBtn.focus();
+    }
+
     try {
       if (window.Whiteboard && !whiteboardInstance) {
         whiteboardInstance = window.Whiteboard.init({
@@ -303,14 +322,11 @@
           onAddNote: function (x, y) {
             addNote(x, y);
           },
+          onClose: function () {
+            restoreNotePalette();
+          },
           onBoardCleared: function () {
-            var dock = $('room-dock');
-            if (dock) {
-              dock.classList.add('dock-pulse-highlight');
-              setTimeout(function () { dock.classList.remove('dock-pulse-highlight'); }, 1200);
-            }
-            var noteBtn = $('add-note');
-            if (noteBtn) noteBtn.focus();
+            restoreNotePalette();
           },
           onToast: toast,
         });
@@ -396,7 +412,8 @@
           if (isVisible) {
             whiteboardInstance.hideUI();
             whiteboardInstance.setTool('select');
-            toast('👆 Select Mode Active');
+            restoreNotePalette();
+            toast('👆 Select Mode · Note creation palette active');
           } else {
             whiteboardInstance.showUI();
             whiteboardInstance.setTool('pencil');
@@ -1835,30 +1852,6 @@
 
   var topbarLeaveBtn = $('topbar-leave-btn');
   if (topbarLeaveBtn) topbarLeaveBtn.addEventListener('click', handleLeaveRoom);
-
-  var topbarWbBtn = $('topbar-wb-btn');
-  if (topbarWbBtn) {
-    topbarWbBtn.addEventListener('click', function () {
-      var btn = $('btn-toggle-wb');
-      if (btn) btn.click();
-    });
-  }
-
-  var topbarCallBtn = $('topbar-call-btn');
-  if (topbarCallBtn) {
-    topbarCallBtn.addEventListener('click', function () {
-      var btn = $('btn-toggle-call-top');
-      if (btn) btn.click();
-    });
-  }
-
-  var topbarChatBtn = $('topbar-chat-btn');
-  if (topbarChatBtn) {
-    topbarChatBtn.addEventListener('click', function () {
-      var btn = $('btn-toggle-chat');
-      if (btn) btn.click();
-    });
-  }
 
   // Welcome card CTA buttons
   if (emptyAddNote) {

@@ -170,16 +170,16 @@ body {
 .topbar-shell {
   pointer-events: auto;
   position: relative;
-  width: 100%;
-  max-width: 1040px;
-  margin: 0 16px;
+  width: auto;
+  max-width: min(calc(100vw - 32px), 1140px);
+  margin: 0 auto;
   border-radius: var(--radius-pill);
   padding: 2.5px;
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.75),
     0 0 40px rgba(150, 215, 255, 0.16);
   transition: box-shadow 260ms ease;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .topbar-shell:hover {
@@ -219,6 +219,7 @@ body {
   -webkit-backdrop-filter: blur(28px) saturate(1.6);
   border-radius: var(--radius-pill);
   padding: 6px 8px 6px 16px;
+  overflow: hidden;
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.12),
     inset 0 -1px 2px rgba(0, 0, 0, 0.5);
