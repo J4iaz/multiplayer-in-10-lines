@@ -1700,13 +1700,42 @@
     }
   });
 
-  var leaveRoomBtn = $('new-room');
-  if (leaveRoomBtn) {
-    leaveRoomBtn.addEventListener('click', function () {
+  function handleLeaveRoom() {
+    if (confirm('Leave this room and return to home page?')) {
       if (room && room.disconnect) {
         try { room.disconnect(); } catch (e) {}
       }
       window.location.href = '/';
+    }
+  }
+
+  var leaveRoomBtn = $('new-room');
+  if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', handleLeaveRoom);
+
+  var topbarLeaveBtn = $('topbar-leave-btn');
+  if (topbarLeaveBtn) topbarLeaveBtn.addEventListener('click', handleLeaveRoom);
+
+  var topbarWbBtn = $('topbar-wb-btn');
+  if (topbarWbBtn) {
+    topbarWbBtn.addEventListener('click', function () {
+      var btn = $('btn-toggle-wb');
+      if (btn) btn.click();
+    });
+  }
+
+  var topbarCallBtn = $('topbar-call-btn');
+  if (topbarCallBtn) {
+    topbarCallBtn.addEventListener('click', function () {
+      var btn = $('btn-toggle-call-top');
+      if (btn) btn.click();
+    });
+  }
+
+  var topbarChatBtn = $('topbar-chat-btn');
+  if (topbarChatBtn) {
+    topbarChatBtn.addEventListener('click', function () {
+      var btn = $('btn-toggle-chat');
+      if (btn) btn.click();
     });
   }
 

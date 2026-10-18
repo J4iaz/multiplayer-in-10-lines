@@ -205,6 +205,9 @@
       '  <button id="wb-clear-btn" class="wb-tool-btn wb-btn-danger" title="Clear Board Drawings" aria-label="Clear Board Drawings">',
       '    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>',
       '  </button>',
+      '  <button id="wb-close-btn" class="wb-tool-btn" title="Close Drawing Tools (Esc)" aria-label="Close Drawing Tools">',
+      '    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+      '  </button>',
       '</div>',
     ].join('\n');
 
@@ -368,6 +371,16 @@
       self.confirmClearBoard();
     });
 
+    // Close Drawing Tools button
+    var wbCloseBtn = document.getElementById('wb-close-btn');
+    if (wbCloseBtn) {
+      wbCloseBtn.addEventListener('click', function () {
+        self.hideUI();
+        self.setTool('select');
+        self.onToast('Drawing tools closed (Click 🎨 Draw to re-open)');
+      });
+    }
+
     // Zoom buttons
     document.getElementById('wb-zoom-in').addEventListener('click', function () {
       self.zoomStep(1.25);
@@ -397,6 +410,16 @@
       }
 
       if (inInput) return;
+
+      if (e.key === 'Escape') {
+        if (self.toolbar && self.toolbar.classList.contains('is-visible')) {
+          self.hideUI();
+          self.setTool('select');
+          self.onToast('Drawing tools closed (Click 🎨 Draw to re-open)');
+          e.preventDefault();
+          return;
+        }
+      }
 
       var isCtrl = e.ctrlKey || e.metaKey;
       if (isCtrl && (e.key === 'z' || e.key === 'Z')) {

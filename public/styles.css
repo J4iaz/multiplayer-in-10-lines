@@ -3270,6 +3270,31 @@ body {
   display: block;
 }
 
+.video-dock-container.minimized .video-grid {
+  display: none !important;
+}
+
+.video-dock-container.minimized .video-controls-bar {
+  display: none !important;
+}
+
+.video-dock-container.minimized .video-dock-shell {
+  width: auto;
+  min-width: 150px;
+}
+
+.btn-leave {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #fca5a5 !important;
+}
+
+.btn-leave:hover {
+  background: rgba(239, 68, 68, 0.35) !important;
+  border-color: rgba(239, 68, 68, 0.7) !important;
+  color: #fff !important;
+}
+
 .video-dock-header {
   display: flex;
   align-items: center;
