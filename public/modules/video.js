@@ -20,6 +20,8 @@
       dock = document.createElement('div');
       dock.id = containerId;
       dock.className = 'video-dock-container';
+      dock.style.position = 'relative';
+      dock.style.zIndex = '9990';
       document.body.appendChild(dock);
     }
 
@@ -90,8 +92,15 @@
     }
 
     function createPeerConnection(targetPeerId) {
-      if (peerConnections.has(targetPeerId)) {
-        return peerConnections.get(targetPeerId);
+      var existing = peerConnections.get(targetPeerId);
+      if (existing && existing.connectionState !== 'failed' && existing.connectionState !== 'closed') {
+        return existing;
+      }
+      if (existing) {
+        try { existing.close(); } catch(e){}
+        peerConnections.delete(targetPeerId);
+        var t = document.getElementById('video-tile-' + targetPeerId);
+        if (t && t.parentNode) t.parentNode.removeChild(t);
       }
 
       var pc = new (window.RTCPeerConnection || window.webkitRTCPeerConnection)({
@@ -233,6 +242,8 @@
         videoEl.srcObject = stream;
         videoEl.play().catch(function () {});
       }
+      var hasVideoTrack = stream && stream.getVideoTracks().length > 0;
+      existing.classList.toggle('has-video', hasVideoTrack);
       updatePeerCount();
     }
 
@@ -349,6 +360,12 @@
       btnCallLabel.textContent = 'Join Call';
       btnCall.classList.remove('vbtn-danger');
       btnCall.disabled = false;
+
+      audioMuted = false;
+      videoMuted = false;
+      isSharingScreen = false;
+      if (btnAudio) btnAudio.textContent = '🎙️';
+      if (btnVideo) btnVideo.textContent = '📹';
 
       btnAudio.disabled = true;
       btnAudio.classList.add('disabled');
@@ -477,7 +494,7 @@
 
     room.on('rtc_peer_joined', function (msg) {
       if (!inCall || !msg.peer) return;
-      // Peer will create offer to us
+      createPeerConnection(msg.peer.id);
       updatePeerCount();
     });
 
@@ -485,7 +502,25 @@
       if (!inCall || !msg.fromId || !msg.offer) return;
       var pc = createPeerConnection(msg.fromId);
       try {
-        await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+        var isCollision = pc.signalingState !== 'stable';
+        if (isCollision) {
+          var isPolite = (room.me ? room.me.id : '') < msg.fromId;
+          if (!isPolite) return;
+          await Promise.all([
+            pc.setLocalDescription({ type: 'rollback' }),
+            pc.setRemoteDescription(new RTCSessionDescription(msg.offer))
+          ]);
+        } else {
+          await pc.setRemoteDescription(new RTCSessionDescription(msg.offer));
+        }
+
+        if (pc._pendingCandidates && pc._pendingCandidates.length) {
+          for (var i = 0; i < pc._pendingCandidates.length; i++) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(pc._pendingCandidates[i])); } catch(e){}
+          }
+          pc._pendingCandidates = [];
+        }
+
         var answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         room.sendMsg({
@@ -503,7 +538,15 @@
       var pc = peerConnections.get(msg.fromId);
       if (pc) {
         try {
-          await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
+          if (pc.signalingState === 'have-local-offer') {
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.answer));
+            if (pc._pendingCandidates && pc._pendingCandidates.length) {
+              for (var i = 0; i < pc._pendingCandidates.length; i++) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(pc._pendingCandidates[i])); } catch(e){}
+              }
+              pc._pendingCandidates = [];
+            }
+          }
         } catch (e) {
           console.error('Error setting remote description:', e);
         }
@@ -513,11 +556,17 @@
     room.on('rtc_ice', async function (msg) {
       if (!inCall || !msg.fromId || !msg.candidate) return;
       var pc = peerConnections.get(msg.fromId);
-      if (pc) {
-        try {
-          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        } catch (e) {}
+      if (!pc) {
+        pc = createPeerConnection(msg.fromId);
       }
+      try {
+        if (!pc.remoteDescription || !pc.remoteDescription.type) {
+          if (!pc._pendingCandidates) pc._pendingCandidates = [];
+          pc._pendingCandidates.push(msg.candidate);
+        } else {
+          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+        }
+      } catch(e) {}
     });
 
     room.on('rtc_peer_left', function (msg) {

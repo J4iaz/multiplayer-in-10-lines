@@ -274,6 +274,7 @@
     ].join('\n');
 
     document.body.appendChild(navBar);
+    navBar.style.zIndex = '9998';
     this.navBar = navBar;
   };
 
@@ -904,7 +905,7 @@
     var state = this.room.getState();
     var keysToClear = [];
     Object.keys(state).forEach(function (k) {
-      if ((k.indexOf('obj:') === 0 || k.indexOf('note:') === 0 || k.indexOf('pos:') === 0) && state[k]) {
+      if (k.indexOf('obj:') === 0 && state[k]) {  // ONLY drawings, not note: or pos:
         keysToClear.push(k);
       }
     });

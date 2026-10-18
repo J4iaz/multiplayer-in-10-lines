@@ -290,7 +290,10 @@
   var videoInstance = null;
   var showGatePrompt = null;
 
+  var modulesInitialized = false;
   function initAllModules() {
+    if (modulesInitialized) return;
+    modulesInitialized = true;
     try {
       if (window.Whiteboard && !whiteboardInstance) {
         whiteboardInstance = window.Whiteboard.init({
@@ -611,7 +614,7 @@
 
   function isAuthor(note) {
     if (!note) return false;
-    if (room.role === 'owner' || room.role === 'host') return true;
+    if (room.role === 'owner' || room.role === 'host' || room.role === 'editor') return true;
     var me = room.me;
     if (!me) return false;
     if (note.userId && me.user && note.userId === me.user.id) return true;
@@ -945,6 +948,8 @@
     if (entry) entry.text.focus();
   }
 
+  var deletedNotesStack = [];
+
   function deleteNote(id) {
     if (room.role === 'viewer') {
       toast('View-only mode: cannot delete notes');
@@ -956,10 +961,24 @@
       toast('Only ' + (note.author || 'the author') + ' can delete this note');
       return;
     }
+    var pos = getPos(id);
+    deletedNotesStack.push({ id: id, note: note, pos: pos });
     var patch = {};
     patch['note:' + id] = null;
     patch['pos:' + id] = null;
     room.setState(patch);
+    toast('Note deleted (Ctrl+Z to restore)');
+  }
+
+  function undoDeleteNote() {
+    if (deletedNotesStack.length === 0) return false;
+    var last = deletedNotesStack.pop();
+    var patch = {};
+    patch['note:' + last.id] = last.note;
+    patch['pos:' + last.id] = last.pos;
+    room.setState(patch);
+    toast('Note restored ✓');
+    return true;
   }
 
   function cycleColor(id) {
@@ -1664,6 +1683,14 @@
   }
 
   window.addEventListener('keydown', function (e) {
+    var activeEl = document.activeElement;
+    var inInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable);
+    if (!inInput && (e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+      if (undoDeleteNote()) {
+        e.preventDefault();
+        return;
+      }
+    }
     if (e.key === 'Escape') {
       if (inviteModal && !inviteModal.hidden) closeInviteModal();
       if (joinModal && !joinModal.hidden) closeJoinModal();
