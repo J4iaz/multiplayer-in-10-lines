@@ -160,22 +160,83 @@
     });
   }
 
-  // --- Create Room Handlers ---
-  function createAndOpenRoom() {
-    var curSession = getStoredSession();
-    if (!curSession || !curSession.user || !curSession.access_token) {
-      openAuthModal('Sign In to Create Room', 'You must sign in or create an account to start a new collaborative room.');
+  // --- Create Room Modal Handlers ---
+  var createRoomModal = document.getElementById('create-room-modal');
+  var createRoomModalClose = document.getElementById('create-room-modal-close');
+  var createRoomCancelBtn = document.getElementById('create-room-cancel-btn');
+  var createRoomSubmitBtn = document.getElementById('create-room-submit-btn');
+  var createRoomCodeInput = document.getElementById('create-room-code-input');
+  var createRoomRandomBtn = document.getElementById('create-room-random-btn');
+  var createRoomPasswordInput = document.getElementById('create-room-password-input');
+  var createRoomForm = document.getElementById('create-room-form');
+
+  function openCreateModal() {
+    if (!createRoomModal) return;
+    createRoomModal.removeAttribute('hidden');
+    createRoomModal.hidden = false;
+    createRoomModal.setAttribute('aria-hidden', 'false');
+    createRoomModal.classList.add('is-open');
+    if (createRoomCodeInput) {
+      createRoomCodeInput.value = randomRoomId(8);
+      setTimeout(function () {
+        createRoomCodeInput.focus();
+        createRoomCodeInput.select();
+      }, 50);
+    }
+    if (createRoomPasswordInput) {
+      createRoomPasswordInput.value = '';
+    }
+  }
+
+  function closeCreateModal() {
+    if (!createRoomModal) return;
+    createRoomModal.classList.remove('is-open');
+    createRoomModal.setAttribute('hidden', '');
+    createRoomModal.hidden = true;
+    createRoomModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function handleCreateRoom() {
+    var raw = createRoomCodeInput ? String(createRoomCodeInput.value || '').trim() : '';
+    var code = raw || randomRoomId(8);
+    var ROOM_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+    if (!ROOM_ID_RE.test(code)) {
+      alert('Room code must contain only letters, numbers, or hyphens.');
+      if (createRoomCodeInput) createRoomCodeInput.focus();
       return;
     }
-    var id = randomRoomId(8);
-    saveRoom(id);
-    window.location.href = '/app.html#room=' + id;
+    var pwd = createRoomPasswordInput ? String(createRoomPasswordInput.value || '').trim() : '';
+    if (pwd) {
+      try { sessionStorage.setItem('room_pwd_' + code, pwd); } catch (e) {}
+    }
+    saveRoom(code);
+    closeCreateModal();
+    window.location.href = '/app.html#room=' + encodeURIComponent(code);
   }
 
   var createRoomBtns = document.querySelectorAll('.action-create-room');
   createRoomBtns.forEach(function (btn) {
-    btn.addEventListener('click', createAndOpenRoom);
+    btn.addEventListener('click', openCreateModal);
   });
+
+  if (createRoomModalClose) createRoomModalClose.addEventListener('click', closeCreateModal);
+  if (createRoomCancelBtn) createRoomCancelBtn.addEventListener('click', closeCreateModal);
+  if (createRoomSubmitBtn) createRoomSubmitBtn.addEventListener('click', handleCreateRoom);
+  if (createRoomForm) createRoomForm.addEventListener('submit', function (e) { e.preventDefault(); handleCreateRoom(); });
+  if (createRoomRandomBtn) {
+    createRoomRandomBtn.addEventListener('click', function () {
+      if (createRoomCodeInput) {
+        createRoomCodeInput.value = randomRoomId(8);
+        createRoomCodeInput.focus();
+        createRoomCodeInput.select();
+      }
+    });
+  }
+  if (createRoomModal) {
+    createRoomModal.addEventListener('click', function (e) {
+      if (e.target === createRoomModal) closeCreateModal();
+    });
+  }
 
   // --- Join Modal ---
   var joinModal = document.getElementById('join-modal');

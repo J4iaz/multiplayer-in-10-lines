@@ -1212,6 +1212,47 @@ body {
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
 }
 
+/* Note Quick-Color Creation Palette in Dock */
+.dock-note-palette {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  padding: 4px 8px;
+}
+
+.dock-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+  padding: 0;
+}
+
+.dock-color-dot:hover {
+  transform: scale(1.35);
+  border-color: #ffffff;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+.dock-color-dot:active {
+  transform: scale(0.95);
+}
+
+.dock-pulse-highlight {
+  animation: dockPulse 1.2s ease;
+}
+
+@keyframes dockPulse {
+  0% { transform: translateX(-50%) scale(1); box-shadow: 0 0 0 0 rgba(150, 215, 255, 0.7); }
+  50% { transform: translateX(-50%) scale(1.06); box-shadow: 0 0 30px 10px rgba(150, 215, 255, 0.6); border-color: rgba(150, 215, 255, 0.9); }
+  100% { transform: translateX(-50%) scale(1); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.65), 0 0 32px rgba(150, 215, 255, 0.12); }
+}
+
 /* ----------------------------------------------------------------
    9. STICKY NOTES
    ---------------------------------------------------------------- */

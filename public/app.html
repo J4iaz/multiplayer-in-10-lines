@@ -114,6 +114,12 @@
               <span>Invite</span>
             </button>
 
+            <!-- Secondary: Create Room -->
+            <button id="create-room-btn" class="btn-glass" type="button" aria-label="Create New Room" title="Create a New Room">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              <span>+ Create</span>
+            </button>
+
             <!-- Secondary: Join Room by Code -->
             <button id="join-room-btn" class="btn-glass" type="button" aria-label="Join Room by Code" title="Join Room with Code">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
@@ -283,6 +289,53 @@
           <button id="join-cancel-btn" class="modal-done-btn" type="button">Cancel</button>
           <button id="join-submit-btn" class="btn-glass btn-primary-glass" type="button">
             <span>Join Room</span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div id="create-room-modal" class="modal-backdrop" aria-hidden="true" hidden>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="create-room-modal-title">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <div class="modal-icon-badge" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            </div>
+            <div>
+              <h3 id="create-room-modal-title" class="modal-title">Create a New Room</h3>
+              <p class="modal-desc">Start a collaborative room with custom name & optional password</p>
+            </div>
+          </div>
+          <button id="create-room-modal-close" class="modal-close-btn" type="button" aria-label="Close dialog">✕</button>
+        </div>
+
+        <form id="create-room-form" class="modal-body" onsubmit="return false;">
+          <label class="modal-label" for="create-room-code-input" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600; color:#c5d4f0;">
+            Room Code / Name
+            <span style="font-size:11px; font-weight:400; color:#8898bb; margin-left:6px;">Letters, numbers, hyphens</span>
+          </label>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:14px;">
+            <div class="modal-input-group modal-prefix-group" style="flex:1;">
+              <span class="modal-code-hash" aria-hidden="true">#</span>
+              <input id="create-room-code-input" class="modal-input modal-code-input" type="text" placeholder="e.g. design-sprint" maxlength="64" spellcheck="false" autocomplete="off" />
+            </div>
+            <button id="create-room-random-btn" class="btn-glass" type="button" title="Generate Random Code" style="padding:10px 14px; font-size:12px; white-space:nowrap;">🎲 Random</button>
+          </div>
+
+          <label class="modal-label" for="create-room-password-input" style="display:block; margin-bottom:6px; font-size:12px; font-weight:600; color:#c5d4f0;">
+            Room Password (Optional)
+            <span style="font-size:11px; font-weight:400; color:#8898bb; margin-left:6px;">Only people with password can join</span>
+          </label>
+          <input id="create-room-password-input" class="modal-input" type="password" placeholder="Leave blank for public room…" autocomplete="new-password" style="width:100%; box-sizing:border-box; margin-bottom:6px;" />
+          <p class="modal-lan-hint">Anyone with this room code will be able to collaborate with you.</p>
+        </form>
+
+        <div class="modal-footer">
+          <button id="create-room-cancel-btn" class="modal-done-btn" type="button">Cancel</button>
+          <button id="create-room-submit-btn" class="btn-glass btn-primary-glass" type="button">
+            <span>+ Create Room</span>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </button>
         </div>
@@ -517,6 +570,15 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <span class="dock-label">Note</span>
       </button>
+
+      <!-- Quick Note Color Creation Palette -->
+      <div id="note-color-palette" class="dock-note-palette" aria-label="Note Color Palette" title="Click color to drop note">
+        <button class="dock-color-dot" type="button" data-note-color="yellow" title="Create Yellow Note" style="background:#ffd966;"></button>
+        <button class="dock-color-dot" type="button" data-note-color="pink" title="Create Pink Note" style="background:#ff7597;"></button>
+        <button class="dock-color-dot" type="button" data-note-color="blue" title="Create Blue Note" style="background:#96d7ff;"></button>
+        <button class="dock-color-dot" type="button" data-note-color="green" title="Create Green Note" style="background:#6ee7b7;"></button>
+        <button class="dock-color-dot" type="button" data-note-color="purple" title="Create Purple Note" style="background:#c084fc;"></button>
+      </div>
 
       <div class="dock-sep" aria-hidden="true"></div>
 

@@ -303,6 +303,15 @@
           onAddNote: function (x, y) {
             addNote(x, y);
           },
+          onBoardCleared: function () {
+            var dock = $('room-dock');
+            if (dock) {
+              dock.classList.add('dock-pulse-highlight');
+              setTimeout(function () { dock.classList.remove('dock-pulse-highlight'); }, 1200);
+            }
+            var noteBtn = $('add-note');
+            if (noteBtn) noteBtn.focus();
+          },
           onToast: toast,
         });
       }
@@ -1216,6 +1225,40 @@
     addNote(p.x, p.y);
   });
 
+  var paletteDots = document.querySelectorAll('.dock-color-dot');
+  paletteDots.forEach(function (dot) {
+    dot.addEventListener('click', function () {
+      if (room.role === 'viewer') {
+        toast('View-only mode: cannot add notes');
+        return;
+      }
+      var chosenColor = dot.dataset.noteColor || 'yellow';
+      var p = getViewportCenterWorldPos();
+      var id = randomId(8);
+      var patch = {};
+      patch['note:' + id] = {
+        text: '',
+        color: chosenColor,
+        author: (room.me && room.me.name) || 'Anonymous',
+        authorId: (room.me && (room.me.userId || room.me.id)) || '',
+        updatedAt: Date.now(),
+      };
+      patch['pos:' + id] = {
+        x: p.x,
+        y: p.y,
+        w: NOTE_W,
+        h: NOTE_H,
+        z: nextZ(),
+      };
+      room.setState(patch);
+      toast('Created ' + chosenColor + ' note');
+      setTimeout(function () {
+        var el = document.querySelector('[data-id="' + id + '"] .note-body');
+        if (el) el.focus();
+      }, 50);
+    });
+  });
+
   // Invite Modal & Link Copy
   var inviteModal = $('invite-modal');
   var inviteLinkInput = $('invite-link-input');
@@ -1486,6 +1529,84 @@
   if (joinModal) {
     joinModal.addEventListener('click', function (e) {
       if (e.target === joinModal) closeJoinModal();
+    });
+  }
+
+  // Create Room Modal & Form
+  var createRoomModal = $('create-room-modal');
+  var createRoomBtn = $('create-room-btn');
+  var createRoomModalClose = $('create-room-modal-close');
+  var createRoomCancelBtn = $('create-room-cancel-btn');
+  var createRoomSubmitBtn = $('create-room-submit-btn');
+  var createRoomForm = $('create-room-form');
+  var createRoomCodeInput = $('create-room-code-input');
+  var createRoomRandomBtn = $('create-room-random-btn');
+  var createRoomPasswordInput = $('create-room-password-input');
+
+  function openCreateModal() {
+    if (!createRoomModal) return;
+    createRoomModal.removeAttribute('hidden');
+    createRoomModal.hidden = false;
+    createRoomModal.setAttribute('aria-hidden', 'false');
+    createRoomModal.classList.add('is-open');
+    if (createRoomCodeInput) {
+      createRoomCodeInput.value = randomId(8);
+      setTimeout(function () {
+        createRoomCodeInput.focus();
+        createRoomCodeInput.select();
+      }, 50);
+    }
+    if (createRoomPasswordInput) {
+      createRoomPasswordInput.value = '';
+    }
+  }
+
+  function closeCreateModal() {
+    if (!createRoomModal) return;
+    createRoomModal.classList.remove('is-open');
+    createRoomModal.setAttribute('hidden', '');
+    createRoomModal.hidden = true;
+    createRoomModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function handleCreateSubmit() {
+    var raw = createRoomCodeInput ? String(createRoomCodeInput.value || '').trim() : '';
+    var code = raw || randomId(8);
+    var ROOM_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
+    if (!ROOM_ID_RE.test(code)) {
+      toast('Invalid room code (use letters, numbers or hyphens)');
+      if (createRoomCodeInput) createRoomCodeInput.focus();
+      return;
+    }
+    var pwd = createRoomPasswordInput ? String(createRoomPasswordInput.value || '').trim() : '';
+    if (pwd) {
+      try { sessionStorage.setItem('room_pwd_' + code, pwd); } catch (e) {}
+    }
+    closeCreateModal();
+    toast('Creating room #' + code + '…');
+    location.hash = 'room=' + code;
+    setTimeout(function () {
+      location.reload();
+    }, 60);
+  }
+
+  if (createRoomBtn) createRoomBtn.addEventListener('click', openCreateModal);
+  if (createRoomModalClose) createRoomModalClose.addEventListener('click', closeCreateModal);
+  if (createRoomCancelBtn) createRoomCancelBtn.addEventListener('click', closeCreateModal);
+  if (createRoomSubmitBtn) createRoomSubmitBtn.addEventListener('click', handleCreateSubmit);
+  if (createRoomForm) createRoomForm.addEventListener('submit', function (e) { e.preventDefault(); handleCreateSubmit(); });
+  if (createRoomRandomBtn) {
+    createRoomRandomBtn.addEventListener('click', function () {
+      if (createRoomCodeInput) {
+        createRoomCodeInput.value = randomId(8);
+        createRoomCodeInput.focus();
+        createRoomCodeInput.select();
+      }
+    });
+  }
+  if (createRoomModal) {
+    createRoomModal.addEventListener('click', function (e) {
+      if (e.target === createRoomModal) closeCreateModal();
     });
   }
 

@@ -62,6 +62,7 @@
     this.boardWrap = opts.boardWrap || document.getElementById('board-wrap');
     this.board = opts.board || document.getElementById('board');
     this.onAddNote = opts.onAddNote || null;
+    this.onBoardCleared = opts.onBoardCleared || null;
     this.onToast = opts.onToast || function () {};
 
     // Camera State
@@ -278,6 +279,7 @@
 
     document.body.appendChild(navBar);
     navBar.style.zIndex = '9998';
+    navBar.style.display = 'none';
     this.navBar = navBar;
   };
 
@@ -416,6 +418,14 @@
           self.hideUI();
           self.setTool('select');
           self.onToast('Drawing tools closed (Click 🎨 Draw to re-open)');
+          e.preventDefault();
+          return;
+        }
+      }
+
+      if (e.key === 'Delete' || e.key === 'Del') {
+        if (self.toolbar && self.toolbar.classList.contains('is-visible')) {
+          self.confirmClearBoard();
           e.preventDefault();
           return;
         }
@@ -739,11 +749,15 @@
     if (this.toolbar) this.toolbar.classList.add('is-visible');
     var isDrawingTool = this.tool === 'pencil' || this.tool === 'highlighter' || this.tool === 'shape';
     if (this.propsPanel) this.propsPanel.classList.toggle('is-visible', isDrawingTool);
+    if (this.navBar) this.navBar.style.display = 'flex';
   };
 
   Whiteboard.prototype.hideUI = function () {
     if (this.toolbar) this.toolbar.classList.remove('is-visible');
     if (this.propsPanel) this.propsPanel.classList.remove('is-visible');
+    var shapeMenu = document.getElementById('wb-shape-menu');
+    if (shapeMenu) shapeMenu.hidden = true;
+    if (this.navBar) this.navBar.style.display = 'none';
   };
 
   Whiteboard.prototype.setTool = function (toolName) {
@@ -933,11 +947,6 @@
       }
     });
 
-    if (keysToClear.length === 0) {
-      this.onToast('Board is already clean');
-      return;
-    }
-
     var items = [];
     var patch = {};
     keysToClear.forEach(function (k) {
@@ -945,13 +954,33 @@
       patch[k] = null;
     });
 
-    this.room.setState(patch);
-    this.pushUndo({
-      type: 'clear',
-      items: items,
-    });
-    this.onToast('Board cleared (' + keysToClear.length + ' item' + (keysToClear.length === 1 ? '' : 's') + ' removed, Ctrl+Z to undo)');
+    if (keysToClear.length > 0) {
+      this.room.setState(patch);
+      this.pushUndo({
+        type: 'clear',
+        items: items,
+      });
+    }
+
+    // Completely wipe all colors and active/live strokes from screen
+    this.currentStroke = null;
+    this.remoteLiveStrokes.clear();
+    if (this.ctx) {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
     this.render();
+
+    // Hide whiteboard drawing tools and return to select mode
+    this.hideUI();
+    this.setTool('select');
+
+    if (typeof this.onBoardCleared === 'function') {
+      this.onBoardCleared();
+    }
+
+    this.onToast(keysToClear.length > 0
+      ? 'Whiteboard cleared (' + keysToClear.length + ' drawings removed) · Note creation palette active'
+      : 'Whiteboard cleared · Note creation palette active');
   };
 
   // Undo / Redo management
