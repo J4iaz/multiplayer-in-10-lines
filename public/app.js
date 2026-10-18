@@ -12,6 +12,22 @@
   var TEXT_DEBOUNCE_MS = 250;
   var NOTE_ID_RE = /^[a-z0-9]{6,16}$/;
   var MAX_AVATARS = 6;
+  var ID_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789';
+
+  function randomId(length) {
+    var len = length || 8;
+    var out = '';
+    try {
+      if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        var bytes = new Uint8Array(len);
+        crypto.getRandomValues(bytes);
+        for (var i = 0; i < len; i++) out += ID_ALPHABET[bytes[i] % ID_ALPHABET.length];
+        return out;
+      }
+    } catch (e) {}
+    for (var j = 0; j < len; j++) out += ID_ALPHABET[Math.floor(Math.random() * ID_ALPHABET.length)];
+    return out;
+  }
 
   var $ = function (id) {
     return document.getElementById(id);
@@ -1607,7 +1623,16 @@
     }, 60);
   }
 
-  if (createRoomBtn) createRoomBtn.addEventListener('click', openCreateModal);
+  function handleStartNewRoom() {
+    var code = randomId(8);
+    toast('Creating new room #' + code + '…');
+    location.hash = 'room=' + code;
+    setTimeout(function () {
+      location.reload();
+    }, 60);
+  }
+
+  if (createRoomBtn) createRoomBtn.addEventListener('click', handleStartNewRoom);
   if (createRoomModalClose) createRoomModalClose.addEventListener('click', closeCreateModal);
   if (createRoomCancelBtn) createRoomCancelBtn.addEventListener('click', closeCreateModal);
   if (createRoomSubmitBtn) createRoomSubmitBtn.addEventListener('click', handleCreateSubmit);
@@ -1847,8 +1872,8 @@
     }
   }
 
-  var leaveRoomBtn = $('new-room');
-  if (leaveRoomBtn) leaveRoomBtn.addEventListener('click', handleLeaveRoom);
+  var newRoomBtn = $('new-room');
+  if (newRoomBtn) newRoomBtn.addEventListener('click', handleStartNewRoom);
 
   var topbarLeaveBtn = $('topbar-leave-btn');
   if (topbarLeaveBtn) topbarLeaveBtn.addEventListener('click', handleLeaveRoom);

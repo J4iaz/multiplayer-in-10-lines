@@ -214,9 +214,15 @@
     window.location.href = '/app.html#room=' + encodeURIComponent(code);
   }
 
+  function handleCreateRoomDirect() {
+    var code = randomRoomId(8);
+    saveRoom(code);
+    window.location.href = '/app.html#room=' + encodeURIComponent(code);
+  }
+
   var createRoomBtns = document.querySelectorAll('.action-create-room');
   createRoomBtns.forEach(function (btn) {
-    btn.addEventListener('click', openCreateModal);
+    btn.addEventListener('click', handleCreateRoomDirect);
   });
 
   if (createRoomModalClose) createRoomModalClose.addEventListener('click', closeCreateModal);
